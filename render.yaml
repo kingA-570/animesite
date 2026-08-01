@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: animesite
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    healthCheckTimeout: 300
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: PYTHON
+        value: python3
+      # Uncomment to require a token before anyone can use the site:
+      # - key: ACCESS_TOKEN
+      #   generateValue: true
