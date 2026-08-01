@@ -253,18 +253,58 @@ function deepTranslateId(obj) {
 const MIRURO_SIDECAR_URL = (process.env.MIRURO_SIDECAR_URL || 'http://127.0.0.1:8765').replace(/\/+$/, '');
 const MIRURO_PROXY_BASE = process.env.MIRURO_PROXY_BASE || 'https://s1.watami.win/';
 const MIRURO_OBF_KEY = Buffer.from(process.env.MIRURO_OBF_KEY || 'a54d389c18527d9fd3e7f0643e27edbe', 'hex');
+// Response obfuscation key for the pipe (`VITE_PIPE_OBF_KEY` from /env2.js).
+// Miruro now XOR-obfuscates pipe responses when they carry `x-obfuscated: 2`.
+const MIRURO_PIPE_OBF_KEY = Buffer.from(process.env.MIRURO_PIPE_OBF_KEY || '71951034f8fbcf53d89db52ceb3dc22c', 'hex');
+// Default pipe protocol version. Overridden by /api/secure/jwks when reachable.
+const MIRURO_PROTOCOL_VERSION = process.env.MIRURO_PROTOCOL_VERSION || '0.2.0';
 
-function miruroDecodePipe(body) {
+// Decode a pipe response. Miruro returns:
+//  - plain JSON (no `x-obfuscated` header)
+//  - base64url(gzip(json)) when `x-obfuscated` is set but not "2"
+//  - base64url(XOR(gzip(json))) when `x-obfuscated: 2` (key = MIRURO_PIPE_OBF_KEY)
+function miruroDecodePipe(body, xObfuscated) {
+  if (!xObfuscated) return JSON.parse(body);
   const compressed = b64urlDecode(body.trim());
-  const json = zlib.gunzipSync(compressed).toString('utf8');
+  let data = Buffer.from(compressed);
+  if (xObfuscated === '2') {
+    for (let i = 0; i < data.length; i++) {
+      data[i] ^= MIRURO_PIPE_OBF_KEY[i % MIRURO_PIPE_OBF_KEY.length];
+    }
+  }
+  const json = zlib.gunzipSync(data).toString('utf8');
   return JSON.parse(json);
+}
+
+// The pipe envelope carries the server's current protocol version
+// (`x-protocol-version` / `version` from /api/secure/jwks). Version is baked
+// into the reply envelope, so it must match what miruro's backend expects or
+// it answers "Invalid envelope format". Cached for 10 minutes.
+const miruroProtocolVersionCache = { value: MIRURO_PROTOCOL_VERSION, at: 0 };
+async function miruroProtocolVersion() {
+  if (Date.now() - miruroProtocolVersionCache.at < 10 * 60 * 1000) {
+    return miruroProtocolVersionCache.value;
+  }
+  try {
+    const sidecar = await fetch(`${MIRURO_SIDECAR_URL}/jwks`, { signal: AbortSignal.timeout(10000) });
+    const result = await sidecar.json();
+    const version = result && (result.version || (result.body && JSON.parse(result.body).version));
+    if (version) {
+      miruroProtocolVersionCache.value = version;
+      miruroProtocolVersionCache.at = Date.now();
+      return version;
+    }
+  } catch { /* keep the configured/default version */ }
+  miruroProtocolVersionCache.at = Date.now();
+  return miruroProtocolVersionCache.value;
 }
 
 // Route the pipe request through the local Python (curl_cffi) sidecar, which
 // carries a real Chrome TLS fingerprint. Falls back to Node fetch so the
 // server still works standalone (that path will 403 behind Cloudflare).
 async function miruroPipeRequest(payload) {
-  const encoded = b64urlEncode(JSON.stringify(payload));
+  const version = await miruroProtocolVersion();
+  const encoded = b64urlEncode(JSON.stringify({ ...payload, version: version || undefined }));
 
   try {
     const sidecar = await fetch(`${MIRURO_SIDECAR_URL}/pipe`, {
@@ -276,7 +316,7 @@ async function miruroPipeRequest(payload) {
     const result = await sidecar.json();
 
     if (result.status === 200 && result.body) {
-      return miruroDecodePipe(result.body);
+      return miruroDecodePipe(result.body, result.x_obfuscated);
     }
     if (result.status) {
       // The pipe often answers with HTML error pages (e.g. nginx "502 upstream
@@ -310,7 +350,7 @@ async function miruroPipeRequest(payload) {
     throw new Error(`Miruro pipe error (${response.status}): ${body.slice(0, 160)}`);
   }
 
-  return miruroDecodePipe(await response.text());
+  return miruroDecodePipe(await response.text(), response.headers.get('x-obfuscated') || undefined);
 }
 
 // XOR-obfuscate a URL with the player key, base64url-encoded (miruro's `xr`).
@@ -348,7 +388,6 @@ async function miruroFetchEpisodes(anilistId) {
     method: 'GET',
     query: { anilistId: Number(anilistId) },
     body: null,
-    version: '0.1.0',
   });
   return deepTranslateId(data);
 }
@@ -364,7 +403,6 @@ async function miruroFetchSources(anilistId, provider, category, episodeId) {
       anilistId: Number(anilistId),
     },
     body: null,
-    version: '0.1.0',
   };
   return miruroPipeRequest(payload);
 }
@@ -374,9 +412,27 @@ async function miruroFetchSources(anilistId, provider, category, episodeId) {
 // fetches in parallel; caches the result for 10 minutes.
 const miruroEmbedsCache = new Map();
 
-// kotocdn-family hosts share the MegaPlay embed mechanism (#megaplay-player
-// data-id + /stream/getSourcesNew) and can be resolved to a real HLS stream.
-const KOTOCDN_EMBED_HOSTS = ['vidtube.site', 'megaplay.buzz'];
+// Embed hosts that can be resolved to a real HLS stream server-side:
+//  - kotocdn-family (vidtube.site, megaplay.buzz) expose a #megaplay-player
+//    data-id that resolves via /stream/getSourcesNew.
+//  - vivibebe.site and krussdomi.com declare their m3u8 directly in the embed
+//    page markup/JSON, so they play without the miruro pipe at all.
+const EMBED_HLS_HOSTS = ['vidtube.site', 'megaplay.buzz', 'vivibebe.site', 'krussdomi.com'];
+
+// Retry a flaky miruro pipe call (the sources endpoint is rate-limited and
+// intermittently returns 444/upstream-unreachable from a cold IP).
+async function miruroWithRetry(fn, attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
 
 async function miruroFetchAllEmbeds(anilistId, episode) {
   const cacheKey = `${anilistId}:${episode}`;
@@ -385,7 +441,13 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
   const data = await miruroFetchEpisodes(anilistId);
   const providers = data.providers || {};
   const jobs = [];
-  for (const [provider, providerData] of Object.entries(providers)) {
+  // Probe only the top providers: each one is a separate (rate-limited) sources
+  // call, so limiting the fan-out keeps the response fast. The others (moo, bee,
+  // ...) rarely carry unique embed hosts beyond what these already provide.
+  const preferred = ['bonk', 'kiwi', 'hop', 'ally', 'pewe'];
+  const ordered = [...preferred.filter((p) => providers[p]), ...Object.keys(providers).filter((p) => !preferred.includes(p))].slice(0, 4);
+  for (const provider of ordered) {
+    const providerData = providers[provider];
     const epGroups = providerData?.episodes || {};
     for (const [category, epList] of Object.entries(epGroups)) {
       if (!Array.isArray(epList)) continue;
@@ -396,9 +458,9 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
 
   const embeds = [];
   const seen = new Set();
-  await Promise.allSettled(jobs.map(async (job) => {
+  const runJob = async (job) => {
     try {
-      const sources = await miruroFetchSources(anilistId, job.provider, job.category, job.episodeId);
+      const sources = await miruroWithRetry(() => miruroFetchSources(anilistId, job.provider, job.category, job.episodeId), 2);
       for (const s of sources.streams || []) {
         if (s.type !== 'embed' || !s.url) continue;
         const key = s.url.split('?')[0];
@@ -411,15 +473,21 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
           category: job.category,
           url: s.url,
           host,
-          kind: KOTOCDN_EMBED_HOSTS.includes(host) ? 'hls' : 'iframe',
+          kind: EMBED_HLS_HOSTS.includes(host) ? 'hls' : 'iframe',
         });
       }
     } catch { /* skip providers that fail to fetch */ }
-  }));
+  };
+  // Bound the whole fan-out so a slow/rate-limited sources call can never hold
+  // the request past ~18s; whatever embeds we've collected by then are returned.
+  await Promise.race([
+    Promise.allSettled(jobs.map(runJob)),
+    new Promise((r) => setTimeout(r, 18000)),
+  ]);
 
   const result = { embeds };
   miruroEmbedsCache.set(cacheKey, result);
-  setTimeout(() => miruroEmbedsCache.delete(cacheKey), 10 * 60 * 1000);
+  setTimeout(() => miruroEmbedsCache.delete(cacheKey), 60 * 60 * 1000);
   return result;
 }
 
@@ -1024,9 +1092,35 @@ async function megapStream(anilistId, episode, lang) {
   };
 }
 
-// Resolve a kotocdn-family embed URL (vidtube.site, megaplay.buzz, ...) into a
-// real HLS stream: fetch the embed page -> data-id -> getSourcesNew. Cached.
+// Resolve a kotocdn-family / inline-HLS embed URL into a real HLS stream.
+// Two mechanisms are supported:
+//   1) kotocdn-family (#megaplay-player data-id -> /stream/getSourcesNew) for
+//      vidtube.site, megaplay.buzz and friends.
+//   2) m3u8 declared directly in the embed page (vivibebe.site, bibiemb.xyz,
+//      krussdomi.com), which plays without the miruro pipe at all.
+// Cached for 10 minutes.
 const embedStreamCache = new Map();
+
+function extractInlineHls(html) {
+  // Pattern 1: const src = "https://.../master.m3u8";
+  let m = html.match(/const\s+src\s*=\s*["']([^"']+\.m3u8)["']/);
+  // Pattern 2: sources: [{ file: "https://.../master.m3u8" }]
+  if (!m) m = html.match(/sources\s*[:=]\s*\[[^\]\n]*?file\s*[:=]\s*["']([^"']+\.m3u8)["']/);
+  if (m) return { m3u8Url: m[1], tracks: [] };
+  // Pattern 3: krussdomi vidstream — m3u8 embedded in page JSON (HTML-escaped)
+  m = html.match(/https:\/\/hls\.krussdomi\.com\/manifest\/[^"'\\]+\.m3u8/);
+  if (m) {
+    const json = html.replace(/&quot;/g, '"');
+    const subs = [];
+    const subRe = /\{"language":\[0,"([^"]+)"\],"name":\[0,"([^"]*)"\],"src":\[0,"([^"]+\.vtt)"\]\}/g;
+    let sm;
+    while ((sm = subRe.exec(json)) && subs.length < 30) {
+      subs.push({ lang: sm[1], label: sm[2] || sm[1], file: sm[3] });
+    }
+    return { m3u8Url: m[0], tracks: subs };
+  }
+  return null;
+}
 
 async function embedToHls(embedUrl) {
   if (embedStreamCache.has(embedUrl)) return embedStreamCache.get(embedUrl);
@@ -1044,31 +1138,44 @@ async function embedToHls(embedUrl) {
   });
   if (!pageResp.ok) throw new Error(`embed page returned ${pageResp.status}`);
   const html = await pageResp.text();
+
+  let result;
   const dataId = (html.match(/data-id="(\d+)"/) || [])[1];
-  if (!dataId) throw new Error('embed not synced for this episode (no data-id)');
+  if (dataId) {
+    const srcResp = await fetch(`${base}/stream/getSourcesNew?id=${dataId}`, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Referer': referer,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!srcResp.ok) throw new Error(`embed sources returned ${srcResp.status}`);
+    const data = await srcResp.json();
+    if (!data?.sources?.file) throw new Error('embed returned no stream file');
+    result = {
+      m3u8Url: data.sources.file,
+      referer,
+      tracks: data.tracks || [],
+      intro: data.intro || null,
+      outro: data.outro || null,
+      dataId,
+      embedUrl,
+    };
+  } else {
+    const inline = extractInlineHls(html);
+    if (!inline) throw new Error('embed not synced for this episode (no stream found)');
+    result = {
+      m3u8Url: inline.m3u8Url,
+      referer,
+      tracks: inline.tracks || [],
+      intro: null,
+      outro: null,
+      embedUrl,
+    };
+  }
 
-  const srcResp = await fetch(`${base}/stream/getSourcesNew?id=${dataId}`, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Referer': referer,
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json, text/javascript, */*; q=0.01',
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!srcResp.ok) throw new Error(`embed sources returned ${srcResp.status}`);
-  const data = await srcResp.json();
-  if (!data?.sources?.file) throw new Error('embed returned no stream file');
-
-  const result = {
-    m3u8Url: data.sources.file,
-    referer,
-    tracks: data.tracks || [],
-    intro: data.intro || null,
-    outro: data.outro || null,
-    dataId,
-    embedUrl,
-  };
   embedStreamCache.set(embedUrl, result);
   setTimeout(() => embedStreamCache.delete(embedUrl), 10 * 60 * 1000);
   return result;
@@ -1584,13 +1691,22 @@ const server = http.createServer(async (req, res) => {
 // miruro_sidecar.py alongside the server unless MIRURO_SIDECAR_URL is set.
 // ========================
 function startMiruroSidecar() {
-  if (process.env.MIRURO_SIDECAR_URL) return;
+  if (process.env.MIRURO_SIDECAR_URL) {
+    console.log('\x1b[33m[MIRURO]\x1b[0m Using external sidecar at', MIRURO_SIDECAR_URL);
+    return;
+  }
   const { spawn } = require('child_process');
   const python = process.env.PYTHON || 'python';
+  console.log('\x1b[33m[MIRURO]\x1b[0m Spawning curl_cffi sidecar with', python);
   const child = spawn(python, [path.join(ROOT, 'miruro_sidecar.py')], {
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
+  const tag = (buf) => String(buf).split('\n').filter(Boolean).forEach((line) => {
+    console.log('\x1b[33m[MIRURO]\x1b[0m', line);
+  });
+  child.stdout.on('data', tag);
+  child.stderr.on('data', tag);
   child.on('error', (err) => {
     console.warn('\x1b[33m[MIRURO]\x1b[0m Could not start curl_cffi sidecar:', err.message);
     console.warn('[MIRURO] Miruro servers will be unavailable. Install with: pip install curl_cffi');
@@ -1602,6 +1718,21 @@ function startMiruroSidecar() {
   });
   process.on('exit', () => child.kill());
   process.on('SIGINT', () => child.kill());
+
+  // Verify the sidecar actually answers before first use.
+  (async () => {
+    for (let i = 0; i < 10; i++) {
+      try {
+        const res = await fetch(`${MIRURO_SIDECAR_URL}/health`, { signal: AbortSignal.timeout(1500) });
+        if (res.ok) {
+          console.log('\x1b[32m[MIRURO]\x1b[0m curl_cffi sidecar is up at', MIRURO_SIDECAR_URL);
+          return;
+        }
+      } catch { /* not ready yet */ }
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    console.warn('\x1b[33m[MIRURO]\x1b[0m sidecar did not become healthy in time; miruro servers may be unavailable.');
+  })();
 }
 
 // ========================

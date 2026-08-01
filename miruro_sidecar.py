@@ -7,6 +7,7 @@ from curl_cffi import requests
 
 PORT = int(os.environ.get("MIRURO_SIDECAR_PORT", "8765"))
 PIPE_URL = os.environ.get("MIRURO_PIPE_URL", "https://www.miruro.to/api/secure/pipe")
+JWKS_URL = os.environ.get("MIRURO_JWKS_URL", "https://www.miruro.to/api/secure/jwks")
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -46,7 +47,19 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/health":
             self._json(200, {"ok": True})
             return
+        if self.path == "/jwks":
+            self._handle_jwks()
+            return
         self._json(404, {"error": "not found"})
+
+    def _handle_jwks(self):
+        try:
+            resp = requests.get(JWKS_URL, headers=HEADERS, impersonate="chrome110", timeout=20)
+            version = resp.headers.get("x-protocol-version") or ""
+            body = resp.text if resp.status_code == 200 else resp.text[:300]
+            self._json(200, {"status": resp.status_code, "body": body, "version": version})
+        except Exception as exc:
+            self._json(200, {"status": 0, "error": str(exc)})
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -69,7 +82,14 @@ class Handler(BaseHTTPRequestHandler):
             url = f"{PIPE_URL}?e={e}"
             resp = requests.get(url, headers=HEADERS, impersonate="chrome110", timeout=30)
             body = resp.text if resp.status_code == 200 else resp.text[:300]
-            self._json(200, {"status": resp.status_code, "body": body})
+            self._json(
+                200,
+                {
+                    "status": resp.status_code,
+                    "body": body,
+                    "x_obfuscated": resp.headers.get("x-obfuscated") or "",
+                },
+            )
         except Exception as exc:
             self._json(200, {"status": 0, "error": str(exc)})
 

@@ -36,6 +36,28 @@
         @media (max-width: 1100px) {
             .watch-wrapper[data-theater-mode="true"] .ep-sidebar { flex-direction: column; }
         }
+        @media (max-width: 768px) {
+            .watch-container { padding: 12px; }
+            .watch-header { gap: 10px; margin-bottom: 14px; }
+            .watch-header h1 { font-size: 1.05rem; }
+            #controls-bar { padding: 5px; gap: 4px; }
+            .current-episode-info { margin: 0 6px; }
+            .current-episode-name { max-width: 40vw; font-size: 0.78rem; }
+            .ctrl { padding: 6px 8px; font-size: 0.72rem; }
+            .ctrl.check label { font-size: 0.68rem; }
+            .controls-right { gap: 4px; }
+            #player-wrapper { border-radius: 10px; }
+            .info-sidebar { display: flex; align-items: stretch; }
+            .info-sidebar .poster-wrap { width: 104px; aspect-ratio: auto; flex-shrink: 0; }
+            .info-sidebar .info-body { flex: 1; min-width: 0; padding: 12px; }
+            .ep-toolbar { gap: 0.4rem; }
+            .ep-range-select { max-width: 100%; }
+        }
+        @media (max-width: 560px) {
+            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); }
+            .current-episode-name { max-width: 36vw; }
+            .ep-sidebar { gap: 12px; }
+        }
 
         /* Player Wrapper */
         #player-wrapper {
@@ -196,11 +218,11 @@
 
         /* List (row) view */
         .episode-grid.list { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
-        .ep-grid-item.list-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0.5rem; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; cursor: pointer; color: #9aa6bd; font-size: 0.78rem; transform: scale(0.98); transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s; }
+        .ep-grid-item.list-row { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0.5rem; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; cursor: pointer; color: #9aa6bd; font-size: 0.78rem; transform: scale(0.98); transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s; }
         .ep-grid-item.list-row:hover, .ep-grid-item.list-row:focus { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 5px rgba(0, 0, 0, 0.6); transform: scale(1); }
         .ep-grid-item.list-row.active { background: #595991; color: #fff; }
-        .ep-grid-item.list-row .ep-num { font-weight: 800; min-width: 44px; }
-        .ep-grid-item.list-row .ep-row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ep-grid-item.list-row .ep-num { font-weight: 800; min-width: 44px; flex-shrink: 0; }
+        .ep-grid-item.list-row .ep-row-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Image view */
         .episode-grid.image { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; }
