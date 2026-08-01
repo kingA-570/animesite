@@ -3,11 +3,12 @@ FROM node:20-bookworm-slim
 # Python + curl_cffi for the miruro sidecar (browser TLS fingerprint)
 # --only-binary prevents curl_cffi from trying to compile from source
 # (that would require a Rust toolchain and fail the build).
+# --break-system-packages: Debian's Python is PEP-668 "externally managed".
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pip \
  && rm -rf /var/lib/apt/lists/* \
- && python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir --only-binary=:all: curl_cffi
+ && python3 -m pip install --break-system-packages --no-cache-dir --upgrade pip \
+ && python3 -m pip install --break-system-packages --no-cache-dir --only-binary=:all: curl_cffi
 
 WORKDIR /app
 
