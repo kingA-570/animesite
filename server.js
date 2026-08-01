@@ -1644,6 +1644,7 @@ server.listen(PORT, () => {
   console.log('  \x1b[32mGET\x1b[0m  /api/miruro/servers?anilistId=&episode=  → miruro providers');
   console.log('  \x1b[32mGET\x1b[0m  /api/miruro/stream?anilistId=&provider=&category=&episode= → HLS sources');
   console.log('  \x1b[32mGET\x1b[0m  /health         → health check');
+  console.log(`  \x1b[33mGate\x1b[0m  Access control: ${ACCESS_TOKEN ? 'ON (login required)' : 'OFF (open)'}`);
   console.log('');
 });
 
