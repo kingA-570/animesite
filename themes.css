@@ -1,0 +1,447 @@
+/* ============================================================
+   AnimeKai Theme System (miruro-style)
+   Themes: dark (default) / light / anilist / catppuccin
+   Accents: orange / red / pink / purple / blue / green / yellow
+   Applied via data-theme + data-accent attributes on <html>.
+   ============================================================ */
+
+:root {
+  --c-bg: #0c1116;
+  --c-header: #181d22;
+  --c-surface: #181d22;
+  --c-surface-2: #20334d;
+  --c-surface-3: #101925;
+  --c-hover: #172537;
+  --c-border: #1c2c42;
+  --c-text: #a0b1c5;
+  --c-text-2: #8097b2;
+  --c-text-3: #515f75;
+  --c-text-bright: #fff;
+  --c-accent: #e45f3a;
+  --c-accent-soft: #54b8e1;
+  --c-accent-text: #fff;
+  --c-hero: #0b1622;
+  --c-footer: #000;
+}
+
+/* ---------- Accent presets ---------- */
+html[data-accent="orange"] { --c-accent: #e45f3a; }
+html[data-accent="red"] { --c-accent: #ef4444; }
+html[data-accent="pink"] { --c-accent: #ec4899; }
+html[data-accent="purple"] { --c-accent: #a855f7; }
+html[data-accent="blue"] { --c-accent: #3b82f6; }
+html[data-accent="green"] { --c-accent: #22c55e; }
+html[data-accent="yellow"] { --c-accent: #eab308; }
+
+/* ---------- Theme: light ---------- */
+html[data-theme="light"] {
+  --c-bg: #eef1f6;
+  --c-header: #ffffff;
+  --c-surface: #ffffff;
+  --c-surface-2: #e6ebf2;
+  --c-surface-3: #dfe6ee;
+  --c-hover: #e6ebf2;
+  --c-border: #d5dce6;
+  --c-text: #2b3544;
+  --c-text-2: #4d5a6d;
+  --c-text-3: #7b879c;
+  --c-text-bright: #111827;
+  --c-accent-soft: #1a7bb8;
+  --c-hero: #e6ebf2;
+  --c-footer: #0c1116;
+}
+
+/* ---------- Theme: anilist ---------- */
+html[data-theme="anilist"] {
+  --c-bg: #0b1622;
+  --c-header: #101d2e;
+  --c-surface: #101d2e;
+  --c-surface-2: #16263b;
+  --c-surface-3: #0d1926;
+  --c-hover: #16263b;
+  --c-border: #1e3049;
+  --c-text: #b7c9dd;
+  --c-text-2: #91a9c4;
+  --c-text-3: #5f7691;
+  --c-text-bright: #fff;
+  --c-hero: #0b1622;
+  --c-footer: #070c13;
+}
+
+/* ---------- Theme: catppuccin ---------- */
+html[data-theme="catppuccin"] {
+  --c-bg: #1e1e2e;
+  --c-header: #181825;
+  --c-surface: #181825;
+  --c-surface-2: #313244;
+  --c-surface-3: #11111b;
+  --c-hover: #313244;
+  --c-border: #313244;
+  --c-text: #cdd6f4;
+  --c-text-2: #a6adc8;
+  --c-text-3: #6c7086;
+  --c-text-bright: #fff;
+  --c-hero: #11111b;
+  --c-footer: #11111b;
+}
+
+/* ============================================================
+   Structural overrides (applied last so they win the cascade)
+   ============================================================ */
+html[data-theme] body {
+  background-color: var(--c-bg);
+  color: var(--c-text);
+}
+
+/* ---------- Header ---------- */
+html[data-theme] header,
+html[data-theme] header.fixed {
+  background: var(--c-header);
+}
+html[data-theme] header a {
+  color: var(--c-text);
+}
+html[data-theme] header .main-menu {
+  color: var(--c-text);
+}
+html[data-theme] header .main-menu:hover,
+html[data-theme] header .main-menu:hover .icon,
+html[data-theme] header .main-menu:hover i {
+  color: var(--c-accent-soft);
+}
+html[data-theme] header #menu > ul {
+  background-color: var(--c-header);
+}
+html[data-theme] header #menu > ul > li > a {
+  color: var(--c-text-3);
+}
+html[data-theme] header #menu > ul > li.active > a,
+html[data-theme] header #menu > ul > li:focus-within > a,
+html[data-theme] header #menu > ul > li:focus > a,
+html[data-theme] header #menu > ul > li:hover > a {
+  color: var(--c-text);
+  background-color: var(--c-hover);
+}
+html[data-theme] header #menu-toggler i {
+  background: var(--c-text-bright);
+}
+
+/* ---------- Buttons / badges / controls ---------- */
+html[data-theme] .btn-primary {
+  background-color: var(--c-accent);
+  border-color: var(--c-accent);
+}
+html[data-theme] .btn-primary:hover,
+html[data-theme] .btn-primary:focus,
+html[data-theme] .btn-primary:active,
+html[data-theme] .btn-primary.active,
+html[data-theme] .show > .btn-primary.dropdown-toggle {
+  background-color: var(--c-accent);
+  border-color: var(--c-accent);
+  filter: brightness(1.1);
+}
+html[data-theme] .btn-secondary {
+  background-color: var(--c-surface);
+  color: var(--c-text-bright);
+}
+html[data-theme] .btn-secondary:hover,
+html[data-theme] .btn-secondary:focus {
+  background-color: var(--c-hover);
+  color: var(--c-text-bright);
+}
+html[data-theme] .btn-gray {
+  background-color: var(--c-surface-3);
+  color: var(--c-text);
+}
+html[data-theme] .badge-secondary {
+  background-color: var(--c-surface);
+}
+html[data-theme] .badge-gray {
+  background-color: var(--c-surface-3);
+}
+
+/* ---------- Generic forms & dropdowns ---------- */
+html[data-theme] .form-control {
+  background-color: var(--c-surface);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+html[data-theme] .form-control:focus {
+  background-color: var(--c-surface-3);
+  color: var(--c-text);
+}
+html[data-theme] .dropdown-menu {
+  background-color: var(--c-surface);
+}
+html[data-theme] .dropdown-item {
+  color: var(--c-text-2);
+}
+html[data-theme] .dropdown-item:hover,
+html[data-theme] .dropdown-item:focus {
+  background-color: var(--c-hover);
+  color: var(--c-text);
+}
+html[data-theme] .dropdown-item:active {
+  background-color: var(--c-surface-2);
+  color: var(--c-text-bright);
+}
+html[data-theme] .dropdown-divider {
+  border-color: var(--c-border);
+}
+html[data-theme] .page-link {
+  background-color: var(--c-surface);
+  border-color: var(--c-border);
+  color: var(--c-text-2);
+}
+html[data-theme] .page-item.disabled .page-link {
+  background-color: var(--c-surface);
+}
+html[data-theme] .modal-header {
+  background: var(--c-surface-3);
+}
+html[data-theme] .modal-content {
+  background-color: var(--c-surface);
+}
+html[data-theme] .modal#sign .modal-title,
+html[data-theme] .modal .close span {
+  color: var(--c-text-bright);
+}
+
+/* ---------- Search ---------- */
+html[data-theme] #search form {
+  background-color: var(--c-surface-3);
+}
+html[data-theme] #search .search-popup {
+  background: var(--c-surface);
+}
+html[data-theme] #search .search-popup .body .items .item:nth-child(2n + 1) {
+  background: var(--c-surface);
+}
+html[data-theme] #search .search-popup .body .items .item:hover {
+  background: var(--c-hover);
+}
+
+/* ---------- Cards / lists / section titles ---------- */
+html[data-theme] .head-box {
+  border-bottom-color: var(--c-border);
+}
+html[data-theme] .head-box .tabs-sm .tab {
+  color: var(--c-text-2);
+}
+html[data-theme] .head-box .tabs-sm .tab.active,
+html[data-theme] .head-box .tabs-sm .tab:hover {
+  color: var(--c-text);
+}
+html[data-theme] .head-box .actions .filter:hover {
+  color: var(--c-text);
+}
+html[data-theme] .tabs {
+  background: var(--c-surface);
+}
+html[data-theme] .tabs .tab.active {
+  color: var(--c-text-bright);
+}
+html[data-theme] .ani.items .item .poster .meta {
+  background: var(--c-surface);
+}
+html[data-theme] .ani.items .item .info .name,
+html[data-theme] .scaff.items .item .info .name,
+html[data-theme] .side.items .item .info .name {
+  color: var(--c-text);
+}
+html[data-theme] .ani.items .item .info .name:hover,
+html[data-theme] .scaff.items .item .info .name:hover {
+  color: var(--c-accent);
+}
+html[data-theme] .side.items .item .inner {
+  background: var(--c-surface);
+}
+html[data-theme] .side.items .item:hover .inner {
+  background: var(--c-hover);
+}
+html[data-theme] .side.items .item .inner .name a {
+  color: var(--c-text);
+}
+html[data-theme] .side.items .item .inner .meta span {
+  color: var(--c-text-3);
+}
+
+/* ---------- Hero swiper ---------- */
+html[data-theme] #hotest .item {
+  background: var(--c-surface);
+}
+html[data-theme] #hotest .item .info .title {
+  color: var(--c-text-bright);
+}
+html[data-theme] #hotest .item .info .synopsis {
+  color: var(--c-text-2);
+}
+
+/* ---------- Schedule block ---------- */
+html[data-theme] section#schedule .head .days .next,
+html[data-theme] section#schedule .head .days .prev {
+  color: var(--c-text-3);
+}
+html[data-theme] section#schedule .head .days .items .day .inner {
+  color: var(--c-text-3);
+}
+html[data-theme] section#schedule .head .days .items .day .inner:hover,
+html[data-theme] section#schedule .head .days .items .day.active .inner {
+  color: var(--c-text-bright);
+}
+html[data-theme] section#schedule .body .items a.item .time,
+html[data-theme] section#schedule .body .items a.item .title {
+  color: var(--c-text);
+}
+html[data-theme] section#schedule .body .items a.item:hover .title {
+  color: var(--c-accent);
+}
+html[data-theme] section#schedule .body .items a.item .ep span {
+  color: var(--c-text-2);
+}
+html[data-theme] section#schedule .body .more {
+  color: var(--c-text-2);
+}
+
+/* ---------- Footer ---------- */
+html[data-theme] footer,
+html[data-theme] footer .container {
+  background: var(--c-footer);
+}
+html[data-theme] footer .azlist ul li a {
+  color: var(--c-text-bright);
+}
+html[data-theme] footer .azlist ul li a:hover {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+html[data-theme] footer .inline-links ul li a {
+  color: var(--c-text);
+}
+html[data-theme] footer .inline-links ul li a:hover {
+  color: var(--c-accent-soft);
+}
+html[data-theme] footer .copyright,
+html[data-theme] footer .disclaimer {
+  color: var(--c-text-3);
+}
+html[data-theme] footer .azlist .head .desc {
+  color: var(--c-text-3);
+}
+
+/* ---------- Tooltip / popover ---------- */
+html[data-theme] .tooltipster-sidetip .tooltipster-box {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+}
+
+/* ============================================================
+   Theme toggle UI (header)
+   ============================================================ */
+.theme-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  cursor: pointer;
+}
+.theme-toggle .theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--c-border, #1c2c42);
+  background: var(--c-surface, #181d22);
+  color: var(--c-text, #a0b1c5);
+  transition: all 0.2s;
+}
+.theme-toggle .theme-toggle-btn:hover {
+  color: var(--c-accent, #e45f3a);
+  border-color: var(--c-accent, #e45f3a);
+  transform: scale(1.06);
+}
+
+.theme-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 230px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--c-surface, #181d22);
+  border: 1px solid var(--c-border, #1c2c42);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  z-index: 120;
+}
+.theme-panel.open {
+  display: block;
+}
+.theme-panel .tp-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-text-3, #515f75);
+  margin: 10px 0 8px;
+}
+.theme-panel .tp-label:first-child {
+  margin-top: 0;
+}
+.theme-panel .tp-themes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.theme-panel .tp-theme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--c-border, #1c2c42);
+  background: var(--c-surface-3, #101925);
+  color: var(--c-text, #a0b1c5);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: capitalize;
+}
+.theme-panel .tp-theme:hover {
+  border-color: var(--c-accent, #e45f3a);
+}
+.theme-panel .tp-theme.active {
+  border-color: var(--c-accent, #e45f3a);
+  color: var(--c-accent, #e45f3a);
+  background: var(--c-hover, #172537);
+}
+.theme-panel .tp-theme .tp-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+.theme-panel .tp-accent {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.theme-panel .tp-accent:hover {
+  transform: scale(1.15);
+}
+.theme-panel .tp-accent.active {
+  border-color: var(--c-text-bright, #fff);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+.theme-panel .tp-accents {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

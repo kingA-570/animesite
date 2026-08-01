@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+    <title>AnimeVerse - Watch Anime Online, Free Anime Streaming</title>
+    <meta name="description" content="AnimeVerse is one of the best places to watch anime for free. Enjoy ad-free sub and dub episodes without creating an account. Jump in and start streaming now."/>
+    <link rel="icon" type="image/png" href="TITLEBAR.PNG"/>
+    <link rel="apple-touch-icon" href="TITLEBAR.PNG"/>
+    <meta property="og:title" content="AnimeVerse - Watch Anime Online, Free Anime Streaming"/>
+    <meta property="og:description" content="AnimeVerse is one of the best places to watch anime for free. Enjoy ad-free sub and dub episodes without creating an account."/>
+    <meta property="og:image" content="HOMEPAGE.PNG"/>
+    <meta property="og:type" content="website"/>
+    <meta name="robots" content="index, follow"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+    <style>
+        :root {
+            --bg: #0b1622;
+            --header: #101d2e;
+            --surface: #101d2e;
+            --surface-2: #16263b;
+            --surface-3: #0d1926;
+            --hover: #16263b;
+            --border: #1e3049;
+            --text: #b7c9dd;
+            --text-2: #91a9c4;
+            --text-3: #5f7691;
+            --bright: #ffffff;
+            --accent: #e45f3a;
+            --accent-soft: #54b8e1;
+            --footer: #070c13;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Nunito', system-ui, sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+        a { color: inherit; text-decoration: none; }
+        img { display: block; max-width: 100%; }
+        .container { width: 100%; max-width: 1220px; margin: 0 auto; padding: 0 16px; }
+
+        /* ================= HEADER ================= */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--header);
+            border-bottom: 1px solid var(--border);
+        }
+        header .container { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; }
+        header .logo { display: block; flex-shrink: 0; }
+        header .logo img { height: 3rem; width: auto; object-fit: contain; max-width: 100%; }
+        nav#main-nav { display: flex; align-items: center; gap: 2px; }
+        nav#main-nav > a,
+        nav#main-nav > .dd > button {
+            background: none; border: none; cursor: pointer;
+            font-family: inherit; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.03em;
+            color: var(--text-3); padding: 8px 10px; border-radius: 8px; transition: all 0.15s;
+        }
+        nav#main-nav > a:hover,
+        nav#main-nav > .dd > button:hover { color: var(--text); background: var(--hover); }
+        .dd { position: relative; }
+        .dd-panel {
+            display: none;
+            position: absolute; top: calc(100% + 8px); left: 0; z-index: 120;
+            min-width: 260px; max-height: 70vh; overflow: auto;
+            padding: 12px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; box-shadow: var(--shadow);
+            grid-template-columns: repeat(3, 1fr); gap: 4px;
+        }
+        .dd-panel.open { display: grid; }
+        .dd-panel a {
+            display: block; padding: 7px 10px; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; color: var(--text-2); transition: all 0.12s;
+        }
+        .dd-panel a:hover { color: var(--bright); background: var(--hover); }
+        .dd-panel.wide { min-width: 520px; grid-template-columns: repeat(4, 1fr); }
+
+        header .actions { display: flex; align-items: center; gap: 10px; }
+        #search-box {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--surface-3); border: 1px solid var(--border);
+            padding: 7px 12px; border-radius: 999px; min-width: 200px;
+        }
+        #search-box svg { width: 14px; height: 14px; stroke: var(--text-3); flex-shrink: 0; }
+        #search-box input {
+            background: none; border: none; outline: none; color: var(--bright);
+            font-family: inherit; font-size: 0.85rem; width: 100%;
+        }
+        #search-box input::placeholder { color: var(--text-3); }
+        .icon-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2);
+            cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+        }
+        .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .icon-btn svg { width: 16px; height: 16px; }
+        #burger { display: none; }
+
+        /* ================= HERO ================= */
+        .hero {
+            position: relative;
+            min-height: 62vh;
+            overflow: hidden;
+            background: var(--bg);
+        }
+        .hero-video {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; object-position: center top;
+        }
+        .hero::after {
+            content: ""; position: absolute; inset: 0;
+            background:
+                linear-gradient(90deg, rgba(11,22,34,0.92) 0%, rgba(11,22,34,0.55) 45%, rgba(11,22,34,0.25) 100%),
+                linear-gradient(180deg, rgba(11,22,34,0.35) 0%, rgba(11,22,34,0) 40%, rgba(11,22,34,0.95) 100%);
+            pointer-events: none;
+        }
+        .hero-inner {
+            position: relative; z-index: 2;
+            display: flex; align-items: center;
+            min-height: 62vh; padding: 56px 0 90px;
+        }
+        .hero-slide { display: none; max-width: 720px; }
+        .hero-slide.active { display: block; animation: fadeUp 0.5s ease; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .hero-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.6rem, 6vw, 4.6rem);
+            line-height: 1; letter-spacing: 0.02em; color: var(--bright);
+            text-shadow: 0 4px 18px rgba(0,0,0,0.6);
+            margin-bottom: 14px;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .hero-meta .tag {
+            font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
+            padding: 3px 10px; border-radius: 999px;
+            background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+        }
+        .hero-meta .tag.dub { color: var(--accent-soft); }
+        .hero-meta .tag.sub { color: var(--accent); }
+        .hero-synopsis {
+            color: var(--text-2); font-size: 0.95rem; max-width: 620px;
+            margin-bottom: 22px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .btn-play {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 12px 26px; border-radius: 999px;
+            background: var(--accent); color: #fff; font-weight: 800; font-size: 0.95rem;
+            transition: filter 0.15s, transform 0.15s;
+        }
+        .btn-play:hover { filter: brightness(1.12); transform: translateY(-1px); }
+        .btn-play svg { width: 15px; height: 15px; fill: #fff; }
+        .hero-controls { position: absolute; right: 24px; bottom: 34px; z-index: 3; display: flex; gap: 10px; }
+        .hero-dots { position: absolute; left: 50%; transform: translateX(-50%); bottom: 36px; z-index: 3; display: flex; gap: 10px; }
+        .hero-dots button {
+            width: 26px; height: 6px; border-radius: 999px; border: none; cursor: pointer;
+            background: rgba(255,255,255,0.3); transition: all 0.2s; padding: 0;
+        }
+        .hero-dots button.active { background: var(--accent); width: 44px; }
+        .hero-arrows { position: absolute; left: 50%; transform: translateX(-50%); bottom: 26px; z-index: 3; display: none; }
+
+        /* ================= SECTIONS ================= */
+        section.block { padding: 34px 0 8px; }
+        .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+        .head .title {
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; letter-spacing: 0.03em;
+            color: var(--bright); display: flex; align-items: center; gap: 10px;
+        }
+        .head .title::before { content: ""; width: 5px; height: 26px; border-radius: 4px; background: var(--accent); }
+        .head .more { color: var(--text-2); font-size: 0.85rem; font-weight: 700; }
+        .head .more:hover { color: var(--accent-soft); }
+
+        .tabs { display: inline-flex; gap: 4px; background: var(--surface-3); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+        .tabs .tab {
+            border: none; background: none; cursor: pointer; color: var(--text-3);
+            font-family: inherit; font-size: 0.8rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; transition: all 0.15s;
+        }
+        .tabs .tab.active, .tabs .tab:hover { color: var(--bright); background: var(--surface-2); }
+
+        /* anime card grid */
+        .ani-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+        .card .poster { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--border); }
+        .card .poster img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease, opacity 0.3s ease; }
+        .card:hover .poster img { transform: scale(1.06); }
+        .card .poster::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.65) 100%);
+        }
+        .card .badges { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; gap: 6px; }
+        .card .badges span { font-size: 0.62rem; font-weight: 800; padding: 2px 7px; border-radius: 6px; background: var(--accent); color: #fff; }
+        .card .badges span.gray { background: rgba(13,25,38,0.85); color: var(--text-2); border: 1px solid var(--border); }
+        .card .ep { position: absolute; bottom: 8px; left: 8px; z-index: 2; display: flex; gap: 5px; }
+        .card .ep b {
+            font-size: 0.62rem; font-weight: 800; padding: 2px 7px; border-radius: 6px;
+            background: rgba(13,25,38,0.85); color: var(--bright); border: 1px solid var(--border);
+        }
+        .card .ep b.sub { color: var(--accent); }
+        .card .ep b.dub { color: var(--accent-soft); }
+        .card .name {
+            display: block; margin-top: 10px; font-size: 0.83rem; font-weight: 700; color: var(--text);
+            line-height: 1.35; min-height: 2.25em; overflow: hidden;
+        }
+        .card:hover .name { color: var(--accent); }
+        .card .alt { font-size: 0.72rem; color: var(--text-3); margin-top: 2px; }
+
+        /* horizontal scroll row */
+        .scroll-row { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .scroll-row .card { flex: 0 0 170px; scroll-snap-align: start; }
+
+        /* top airing list */
+        .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 34px; }
+        .side-list { display: flex; flex-direction: column; gap: 10px; }
+        .side-item { display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; transition: background 0.15s; }
+        .side-item:hover { background: var(--hover); }
+        .side-item .rank {
+            width: 30px; flex-shrink: 0; text-align: center;
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--text-3);
+        }
+        .side-item:nth-child(-n+3) .rank { color: var(--accent); }
+        .side-item img { width: 44px; height: 60px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+        .side-item .si-name { font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+        .side-item .si-meta { font-size: 0.7rem; color: var(--text-3); margin-top: 3px; }
+
+        /* genres cloud */
+        .genre-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+        .genre-cloud a {
+            padding: 8px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text-2); transition: all 0.15s;
+        }
+        .genre-cloud a:hover { color: #fff; background: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
+
+        /* ================= FOOTER ================= */
+        footer { margin-top: 60px; background: var(--footer); border-top: 1px solid var(--border); padding: 40px 0 30px; text-align: center; }
+        footer .logo img { height: 3rem; width: auto; object-fit: contain; max-width: 100%; margin: 0 auto 18px; }
+        footer .flinks { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-bottom: 18px; }
+        footer .flinks a { color: var(--text-2); font-size: 0.85rem; font-weight: 600; }
+        footer .flinks a:hover { color: var(--accent-soft); }
+        footer .copyright { color: var(--text-3); font-size: 0.85rem; }
+        footer .copyright strong { color: var(--bright); font-weight: 800; }
+
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 1100px) { .ani-grid { grid-template-columns: repeat(5, 1fr); } }
+        @media (max-width: 900px) {
+            .ani-grid { grid-template-columns: repeat(4, 1fr); }
+            .two-col { grid-template-columns: 1fr; }
+            nav#main-nav {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                flex-direction: column; align-items: stretch; gap: 0;
+                background: var(--header); border-top: 1px solid var(--border); padding: 8px;
+            }
+            nav#main-nav.open { display: flex; }
+            nav#main-nav > a, nav#main-nav > .dd > button { padding: 12px; text-align: left; width: 100%; }
+            .dd-panel, .dd-panel.wide { position: static; grid-template-columns: repeat(3, 1fr); box-shadow: none; border: none; max-height: none; }
+            #burger { display: flex; }
+            #search-box { display: none; }
+            .hero, .hero-inner { min-height: 56vh; }
+        }
+        @media (max-width: 600px) { .ani-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+        @media (prefers-reduced-motion: reduce) { .hero-slide.active { animation: none; } }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a class="logo" href="animeverse.html" aria-label="AnimeVerse Home">
+                <img src="logo.png" alt="AnimeVerse"/>
+            </a>
+            <nav id="main-nav" aria-label="Primary">
+                <a href="#">Home</a>
+                <div class="dd">
+                    <button type="button" class="dd-toggle">Genre <span style="opacity:.6">&#9662;</span></button>
+                    <div class="dd-panel wide" data-close="true">
+                        <a href="#">Action</a><a href="#">Adventure</a><a href="#">Comedy</a><a href="#">Drama</a>
+                        <a href="#">Fantasy</a><a href="#">Horror</a><a href="#">Isekai</a><a href="#">Magic</a>
+                        <a href="#">Mecha</a><a href="#">Mystery</a><a href="#">Psychological</a><a href="#">Romance</a>
+                        <a href="#">School</a><a href="#">Sci-Fi</a><a href="#">Seinen</a><a href="#">Shounen</a>
+                        <a href="#">Slice of Life</a><a href="#">Sports</a><a href="#">Supernatural</a><a href="#">Thriller</a>
+                    </div>
+                </div>
+                <div class="dd">
+                    <button type="button" class="dd-toggle">Types <span style="opacity:.6">&#9662;</span></button>
+                    <div class="dd-panel" data-close="true">
+                        <a href="#">Movie</a><a href="#">Music</a><a href="#">ONA</a><a href="#">OVA</a>
+                        <a href="#">Special</a><a href="#">TV</a><a href="#">TV Short</a><a href="#">TV Special</a>
+                    </div>
+                </div>
+                <a href="#">Updated</a>
+                <a href="#">Added</a>
+                <a href="#">Popular</a>
+                <a href="#">Upcoming</a>
+                <a href="#">Ongoing</a>
+                <a href="#">Finished</a>
+                <a href="#">Random</a>
+            </nav>
+            <div class="actions">
+                <div id="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" placeholder="Search anime..." aria-label="Search"/>
+                </div>
+                <button class="icon-btn" type="button" aria-label="Random anime" title="Random anime">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                </button>
+                <button class="icon-btn" type="button" aria-label="User" title="Sign in">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </button>
+                <button class="icon-btn" id="burger" type="button" aria-label="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="body">
+        <section class="hero">
+            <video class="hero-video" autoplay muted loop playsinline preload="auto" poster="HOMEPAGE.PNG">
+                <source src="12.mp4" type="video/mp4"/>
+            </video>
+            <div class="hero-inner container">
+                <div id="heroSlider">
+                    <div class="hero-slide active">
+                        <h1 class="hero-title">One Piece</h1>
+                        <div class="hero-meta">
+                            <span class="tag">PG-13</span><span class="tag">HD</span>
+                            <span class="tag dub">DUB</span><span class="tag sub">SUB</span>
+                            <span class="tag">1999 to ?</span>
+                        </div>
+                        <p class="hero-synopsis">Gold Roger was known as the "Pirate King," the strongest and most infamous being to have sailed the Grand Line. The capture and execution of Roger by the World Government brought a change throughout the world. His last words before his death revealed the existence of the ultimate treasure, One Piece.</p>
+                        <a class="btn-play" href="#recent">
+                            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Play now
+                        </a>
+                    </div>
+                    <div class="hero-slide">
+                        <h1 class="hero-title">That Time I Got Reincarnated as a Slime S4</h1>
+                        <div class="hero-meta">
+                            <span class="tag">PG-13</span><span class="tag">HD</span>
+                            <span class="tag dub">DUB</span><span class="tag sub">SUB</span>
+                            <span class="tag">2026 to ?</span>
+                        </div>
+                        <p class="hero-synopsis">Demon Lord Rimuru's dream of creating an alliance between humans and monsters takes a step closer to being realized. As Tempest continues to prosper, Granville moves on the Empire, threatening everything Rimuru has built.</p>
+                        <a class="btn-play" href="#recent">
+                            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Play now
+                        </a>
+                    </div>
+                    <div class="hero-slide">
+                        <h1 class="hero-title">Mushoku Tensei: Jobless Reincarnation S3</h1>
+                        <div class="hero-meta">
+                            <span class="tag">HD</span><span class="tag dub">DUB</span><span class="tag sub">SUB</span>
+                            <span class="tag">2026</span>
+                        </div>
+                        <p class="hero-synopsis">The third season of Mushoku Tensei: Isekai Ittara Honki Dasu. A jobless man is reborn in a world of magic with the memories of his past life, vowing to live this one without regrets.</p>
+                        <a class="btn-play" href="#recent">
+                            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Play now
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-dots" id="heroDots" role="tablist"></div>
+            <div class="hero-controls">
+                <button class="icon-btn" id="muteBtn" type="button" title="Toggle sound" aria-label="Toggle sound">
+                    <svg id="iconSoundOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    <svg id="iconSoundOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <div class="container">
+            <div class="bsharing" style="display:flex;align-items:center;gap:10px;justify-content:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:26px;font-size:.85rem;color:var(--text-2)">
+                <span style="color:var(--accent);font-weight:800">&#9733;</span>
+                Enjoying our website? Share AnimeVerse with your friends &mdash; it helps us grow!
+            </div>
+
+            <section class="block" id="recent">
+                <div class="head">
+                    <div class="title">Recently Updated</div>
+                    <div class="tabs">
+                        <button class="tab active" type="button">All</button>
+                        <button class="tab" type="button">Sub</button>
+                        <button class="tab" type="button">Dub</button>
+                        <button class="tab" type="button">Trending</button>
+                    </div>
+                </div>
+                <div class="ani-grid" id="recentGrid"></div>
+            </section>
+
+            <section class="block">
+                <div class="head">
+                    <div class="title">Trending Now</div>
+                    <a class="more" href="#">View all &rarr;</a>
+                </div>
+                <div class="scroll-row" id="trendingRow"></div>
+            </section>
+
+            <section class="block">
+                <div class="two-col">
+                    <div>
+                        <div class="head">
+                            <div class="title">Top Airing</div>
+                            <a class="more" href="#">View all &rarr;</a>
+                        </div>
+                        <div class="ani-grid" id="topAiringGrid"></div>
+                    </div>
+                    <div>
+                        <div class="head">
+                            <div class="title">Genres</div>
+                        </div>
+                        <div class="genre-cloud">
+                            <a href="#">Action</a><a href="#">Adventure</a><a href="#">Comedy</a>
+                            <a href="#">Drama</a><a href="#">Fantasy</a><a href="#">Horror</a>
+                            <a href="#">Isekai</a><a href="#">Magic</a><a href="#">Mecha</a>
+                            <a href="#">Mystery</a><a href="#">Romance</a><a href="#">School</a>
+                            <a href="#">Sci-Fi</a><a href="#">Seinen</a><a href="#">Shounen</a>
+                            <a href="#">Slice of Life</a><a href="#">Sports</a><a href="#">Supernatural</a>
+                            <a href="#">Thriller</a><a href="#">Vampire</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <a class="logo" href="animeverse.html"><img src="logo.png" alt="AnimeVerse"/></a>
+            <div class="flinks">
+                <a href="#">Home</a><a href="#">About</a><a href="#">DMCA</a><a href="#">Contact</a>
+                <a href="#">Terms of Service</a><a href="#">Privacy Policy</a><a href="#">Sitemap</a>
+            </div>
+            <div class="copyright">&copy; <span id="year">2026</span> <strong>AnimeVerse</strong> &middot; Watch anime online for free &middot; Made by <strong>King A</strong></div>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            "use strict";
+            document.getElementById("year").textContent = new Date().getFullYear();
+
+            /* ---------- header dropdowns + mobile menu ---------- */
+            var burger = document.getElementById("burger");
+            var nav = document.getElementById("main-nav");
+            burger.addEventListener("click", function () { nav.classList.toggle("open"); });
+
+            document.querySelectorAll(".dd-toggle").forEach(function (btn) {
+                btn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    var p = btn.closest(".dd");
+                    var panel = p.querySelector(".dd-panel");
+                    var wasOpen = panel.classList.contains("open");
+                    document.querySelectorAll(".dd-panel.open").forEach(function (x) { x.classList.remove("open"); });
+                    if (!wasOpen) panel.classList.add("open");
+                });
+            });
+            document.addEventListener("click", function (e) {
+                if (!e.target.closest(".dd")) {
+                    document.querySelectorAll(".dd-panel.open").forEach(function (x) { x.classList.remove("open"); });
+                }
+            });
+
+            /* ---------- hero slider ---------- */
+            var slides = Array.prototype.slice.call(document.querySelectorAll(".hero-slide"));
+            var dotsWrap = document.getElementById("heroDots");
+            var current = 0;
+            slides.forEach(function (_, i) {
+                var d = document.createElement("button");
+                d.setAttribute("type", "button");
+                d.setAttribute("aria-label", "Slide " + (i + 1));
+                if (i === 0) d.classList.add("active");
+                d.addEventListener("click", function () { goTo(i); });
+                dotsWrap.appendChild(d);
+            });
+            var dots = Array.prototype.slice.call(dotsWrap.children);
+
+            function goTo(i) {
+                slides[current].classList.remove("active");
+                dots[current].classList.remove("active");
+                current = (i + slides.length) % slides.length;
+                slides[current].classList.add("active");
+                dots[current].classList.add("active");
+            }
+            setInterval(function () { goTo(current + 1); }, 7000);
+
+            /* ---------- mute toggle ---------- */
+            var video = document.querySelector(".hero-video");
+            var soundOn = document.getElementById("iconSoundOn");
+            var soundOff = document.getElementById("iconSoundOff");
+            document.getElementById("muteBtn").addEventListener("click", function () {
+                video.muted = !video.muted;
+                soundOn.style.display = video.muted ? "none" : "";
+                soundOff.style.display = video.muted ? "" : "none";
+            });
+
+            /* ---------- sample catalogue ---------- */
+            var A = [
+                ["Versatile Mage Season 7", "Quanzhi Fashi 7", "https://cdn.anipixcdn.co/thumbnail/0bd261e69bd10b1ec1e3b863767cdef8.jpg", "ONA", "10", "12", true, false],
+                ["That Time I Got Reincarnated as a Slime S4", "Tensei shitara Slime Datta Ken 4th Season", "https://cdn.anipixcdn.co/background/14c2f4ab3ad95f50_1778862809.jpg", "TV", "7", "?", true, true],
+                ["Isekai Office Worker", "Isekai no Sata wa Shachiku Shidai", "https://cdn.anipixcdn.co/thumbnail/f3f2fe32aadc1bd69bd884f39aa52fb5.jpg", "TV", "13", "12", true, true],
+                ["Red River", "Sora wa Akai Kawa no Hotori", "https://cdn.anipixcdn.co/thumbnail/0b38a6bd6d52a84544abdf4734aeab5a.jpg", "TV", "3", "12", true, false],
+                ["One Piece", "One Piece", "https://image.tmdb.org/t/p/original/a6ptrTUH1c5OdWanjyYtAkOuYD0.jpg", "TV", "1100", "?", true, true],
+                ["The Oblivious Saint Can't Contain Her Power", "Mujikaku Seijo wa Kyou mo Muishiki ni Chikara wo Tare Nagasu", "https://cdn.anipixcdn.co/thumbnail/30a50e0beed7e8e5887c9c9edfaace49.jpg", "TV", "4", "?", true, false],
+                ["Mushoku Tensei: Jobless Reincarnation S3", "Mushoku Tensei III", "https://cdn.anipixcdn.co/background/f75f370e170606d0_1783551063.webp", "TV", "5", "?", true, true],
+                ["Kimi ga Shinu made Koi wo Shitai", "Kimi ga Shinu made Koi wo Shitai", "https://cdn.anipixcdn.co/thumbnail/1ffa47ed501e5e5602fa03af66fd4e76.jpg", "TV", "3", "?", true, false],
+                ["From Overshadowed to Overpowered", "Rakudai Kenja no Gakuin Musou", "https://cdn.anipixcdn.co/background/c9a725ccf82560b9_1782839202.webp", "TV", "9", "?", true, false],
+                ["The Ghost in the Shell", "Koukaku Kidoutai (TV)", "https://cdn.anipixcdn.co/thumbnail/4998f96f766ffedb7a34f6a9dbe4b959.jpg", "TV", "3", "12", true, true],
+                ["Skeleton Knight in Another World S2", "Gaikotsu Kishi-sama II", "https://cdn.anipixcdn.co/thumbnail/6c5d124eddd0219b81c8ac758464e25b.jpg", "TV", "6", "?", true, true],
+                ["Ushiro no Shoumen Kamui-san", "KAMUI: He's Behind You", "https://cdn.anipixcdn.co/thumbnail/3c96b49a01b06c9e7feeba7ef289e093.jpg", "TV", "4", "?", true, false],
+                ["The Insipid Prince's Furtive Grab for The Throne", "Saikyou Degarashi Ouji", "https://cdn.anipixcdn.co/background/ad252563832763e1_1783551061.webp", "TV", "8", "?", true, false],
+                ["That Time I Got Reincarnated as a Slime the Movie: Tears of the Azure Sea", "Tensei shitara Slime Datta Ken Movie 2", "https://cdn.anipixcdn.co/thumbnail/189dcb37c92460e7ba55d67186943702.jpg", "MOVIE", "1", "1", true, false],
+                ["Though I Am an Inept Villainess", "Futsutsuka na Akujo dewa Gozaimasu ga", "https://cdn.anipixcdn.co/thumbnail/d05a7f5da2bf9e1d11caa329733a6ec5.jpg", "TV", "2", "?", true, true],
+                ["Victoria of Many Faces", "Tefuda ga Oome no Victoria", "https://cdn.anipixcdn.co/thumbnail/0b9fe483a0aba8ffe41cf04f0a708093.jpg", "TV", "3", "9", true, false],
+                ["Migawari Reijou wo Sukutta no wa Reikoku Mujihi na Koori no Ouji no Ai deshita", "Migawari Reijou", "https://cdn.anipixcdn.co/thumbnail/88b7e37cd289469abf1b39b5033f229c.jpg", "TV", "3", "?", true, false],
+                ["Yoroi-Shinden Samurai Troopers Part 2", "Yoroi Shin Den Samurai Troopers season 2", "https://cdn.anipixcdn.co/thumbnail/f27ca492fd801ff0b8e96263d7dc4f54.jpg", "TV", "3", "12", true, false]
+            ];
+
+            function card(a, lazy) {
+                var epB = '<b class="sub">SUB ' + a[4] + '</b>';
+                if (a[6]) epB += '<b class="dub">DUB</b>';
+                if (a[7]) epB += '<b>' + a[5] + '</b>';
+                var badges = '<span class="gray">' + a[3] + '</span><span>HD</span>';
+                return '<div class="card">' +
+                    '<a class="poster" href="#">' +
+                        '<img' + (lazy ? ' loading="lazy" decoding="async"' : '') + ' src="' + a[2] + '" alt="' + a[0] + '" width="300" height="400"/>' +
+                        '<div class="badges">' + badges + '</div>' +
+                        '<div class="ep">' + epB + '</div>' +
+                    '</a>' +
+                    '<a class="name" href="#">' + a[0] + '</a>' +
+                    '<div class="alt">' + a[1] + '</div>' +
+                '</div>';
+            }
+
+            var recentGrid = document.getElementById("recentGrid");
+            var html = "";
+            for (var i = 0; i < 12; i++) html += card(A[i], i > 5);
+            recentGrid.innerHTML = html;
+
+            var trendingRow = document.getElementById("trendingRow");
+            var t = "";
+            for (var i = 12; i < 18; i++) t += card(A[i], true);
+            trendingRow.innerHTML = t;
+
+            var topAiring = document.getElementById("topAiringGrid");
+            var ta = "";
+            for (var i = 0; i < 6; i++) ta += card(A[i], true);
+            topAiring.innerHTML = ta;
+        })();
+    </script>
+</body>
+</html>

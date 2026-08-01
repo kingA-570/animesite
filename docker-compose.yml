@@ -1,0 +1,11 @@
+services:
+  animesite:
+    build: .
+    container_name: animesite
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - PYTHON=python3
+      # - ACCESS_TOKEN=change-me-to-a-strong-random-string
+    ports:
+      - "3000:3000"

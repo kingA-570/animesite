@@ -1,0 +1,2199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch Anime - AnimeKai</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="themes.css">
+    <script type="text/javascript" src="theme.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        /* Mini reset for standalone pages */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Nunito', sans-serif; background: #0b0e1a; color: #fff; min-height: 100vh; }
+        .watch-container { max-width: 1500px; margin: 0 auto; padding: 20px; }
+        .watch-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .watch-header h1 { font-size: 1.4rem; font-weight: 700; color: #e8e8e8; }
+        .watch-header .back-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid #2a2f45;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            background: transparent; color: #b0b8d1; font-size: 1.2rem; transition: all .2s;
+        }
+        .watch-header .back-btn:hover { background: #2a2f45; color: #fff; }
+        .watch-header .slug-info { color: #7a82a0; font-size: 0.82rem; margin-top: 2px; }
+
+        /* ============ Miruro-style layout: player + servers main, poster + episodes sidebar ============ */
+        .watch-wrapper { display: flex; flex-direction: row; align-items: stretch; gap: 20px; margin-bottom: 8px; }
+        .watch-wrapper[data-theater-mode="true"] { flex-direction: column; }
+        .player-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+        .ep-sidebar { flex: 0 0 340px; width: 340px; display: flex; flex-direction: column; gap: 16px; }
+        @media (max-width: 1100px) {
+            .watch-wrapper { flex-direction: column; }
+            .watch-wrapper[data-theater-mode="true"] { flex-direction: column; }
+            .ep-sidebar { flex-basis: auto; width: 100%; }
+        }
+        @media (max-width: 1100px) {
+            .watch-wrapper[data-theater-mode="true"] .ep-sidebar { flex-direction: column; }
+        }
+
+        /* Player Wrapper */
+        #player-wrapper {
+            position: relative; width: 100%; aspect-ratio: 16/9; background: #000;
+            border-radius: 12px; overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            transition: filter .25s ease;
+        }
+        .watch-wrapper[data-theater-mode="true"] #player-wrapper { aspect-ratio: 21/9; }
+        #player-wrapper.light-on { filter: brightness(1.7) saturate(.9); }
+        #player-wrapper iframe { width: 100%; height: 100%; border: none; }
+        #player-wrapper .loading-overlay {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #0b0e1a; z-index: 10;
+            gap: 16px; color: #7a82a0; font-size: 0.95rem;
+        }
+        .spinner { width: 40px; height: 40px; border: 3px solid #2a2f45; border-top-color: #e51e3a; border-radius: 50%; animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ============ Miruro-style player menu bar ============ */
+        #controls-bar {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px; flex-wrap: wrap;
+            background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.12);
+            border-radius: 10px;
+        }
+        .ctrl {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-radius: 8px; cursor: pointer;
+            color: #9aa6bd; font-size: 0.78rem; font-weight: 700;
+            border: none; background: rgba(159, 173, 189, 0.08); user-select: none;
+            transition: all .15s; white-space: nowrap; line-height: 1;
+        }
+        .ctrl:hover { background: rgba(159, 173, 189, 0.16); color: #e8ecf4; }
+        .ctrl:active { transform: scale(0.94); }
+        .ctrl > i { font-size: 0.85rem; width: 15px; text-align: center; }
+        .ctrl.forward { padding: 8px 12px; font-size: 0.85rem; }
+        .ctrl.forward:disabled { opacity: 0.35; pointer-events: none; }
+        .ctrl.check { flex-direction: row-reverse; padding: 5px 8px 5px 10px; }
+        .ctrl.check input[type="checkbox"] {
+            appearance: none; -webkit-appearance: none;
+            width: 30px; height: 17px; border-radius: 10px;
+            background: rgba(159, 173, 189, 0.2); position: relative; cursor: pointer; transition: background .15s;
+            flex-shrink: 0; margin: 0;
+        }
+        .ctrl.check input[type="checkbox"]::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 13px; height: 13px; border-radius: 50%; background: #9aa6bd;
+            transition: transform .15s, background .15s;
+        }
+        .ctrl.check input[type="checkbox"]:checked { background: #e45f3a; }
+        .ctrl.check input[type="checkbox"]:checked::after { transform: translateX(13px); background: #fff; }
+        .ctrl.check input[type="checkbox"]:disabled { opacity: .4; cursor: not-allowed; }
+        .ctrl.check label { margin: 0; cursor: pointer; color: inherit; font-size: 0.76rem; font-weight: 700; line-height: 1; }
+        .ctrl.auto-skip label { color: #f0a500; }
+        .ctrl.light.on { color: #f0a500; }
+        .ctrl.expand.on { color: #e45f3a; }
+        .ctrl.layout.on { color: #b5a8ff; }
+        .ctrl.skiptime { border: none; background: transparent; padding: 0; }
+
+        .controls-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+
+        .current-episode-info { display: flex; flex-direction: column; margin: 0 10px; min-width: 0; }
+        .current-episode-name { font-size: 0.85rem; font-weight: 700; color: #e8ecf4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+        .current-episode-type { font-size: 0.68rem; font-weight: 700; color: #e45f3a; letter-spacing: 1px; }
+
+        /* Skip-time dropdown */
+        .ctrl.skiptime { position: relative; }
+        .skiptime .dropdown-menu {
+            position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 50;
+            background: #1a1f35; border: 1px solid #2a2f45; border-radius: 8px;
+            min-width: 90px; padding: 4px; display: none; flex-direction: column;
+        }
+        .skiptime .dropdown-menu.open { display: flex; }
+        .skiptime .dropdown-item {
+            padding: 7px 12px; border-radius: 6px; color: #b0b8d1;
+            font-size: 0.82rem; font-weight: 600; cursor: pointer;
+        }
+        .skiptime .dropdown-item:hover, .skiptime .dropdown-item.active { background: #e51e3a; color: #fff; }
+
+        /* ============ Info card (miruro-style poster card) ============ */
+        .info-sidebar {
+            background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.1);
+            border-radius: 0.5rem; overflow: hidden;
+        }
+        .info-sidebar .poster-wrap { width: 100%; aspect-ratio: 1/1; overflow: hidden; background: #1e233b; }
+        .info-sidebar .poster-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .info-sidebar .info-body { padding: 14px 16px 16px; }
+        .w-title { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 8px; line-height: 1.3; }
+        .w-score { display: inline-flex; align-items: center; gap: 5px; color: #f0a500; font-weight: 800; font-size: 0.88rem; margin-bottom: 8px; }
+        .w-airing { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; padding: 6px 10px; background: rgba(181, 168, 255, 0.08); border: 1px solid rgba(181, 168, 255, 0.25); border-radius: 8px; font-size: 0.75rem; font-weight: 700; color: #cbbfff; }
+        .w-airing i { color: #b5a8ff; font-size: 0.8rem; }
+        .w-airing .air-at { margin-left: auto; color: #b5a8ff; white-space: nowrap; }
+        .w-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .badge {
+            padding: 3px 9px; border-radius: 20px; background: #232945;
+            color: #9aa3c4; font-size: 0.68rem; font-weight: 700; letter-spacing: .4px;
+        }
+        .w-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .genre { padding: 3px 10px; border-radius: 20px; background: #1a1f35; border: 1px solid #e45f3a44; color: #e8a8b3; font-size: 0.72rem; font-weight: 600; }
+
+        /* ============ Episode & Server Panels ============ */
+        .panel { background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; padding: 14px 16px; }
+        .panel h2 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: #c8cde0; display: flex; align-items: center; gap: 8px; }
+        .panel h2 i { color: #e45f3a; font-size: 0.85rem; }
+
+        /* ============ SynopsIS block (miruro main column) ============ */
+        .synopsis-panel { margin-top: 2px; }
+        .synopsis-panel h2 { font-size: 0.95rem; margin-bottom: 8px; }
+        .w-synopsis { color: #8b93b5; font-size: 0.85rem; line-height: 1.65; max-height: 220px; overflow-y: auto; }
+        .w-synopsis::-webkit-scrollbar { width: 4px; }
+        .w-synopsis::-webkit-scrollbar-thumb { background: #3b3f60; border-radius: 4px; }
+
+        /* ============ Miruro-style Episode Panel ============ */
+        .panel.ep-panel { background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; padding: 0; overflow: hidden; }
+        .ep-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0.75rem 0.9rem; border-bottom: 1px solid rgba(159, 173, 189, 0.1); }
+        .ep-panel-head h2 { margin-bottom: 0; font-size: 1rem; font-weight: 700; color: #e8ecf4; display: flex; align-items: center; gap: 8px; }
+        .ep-panel-head h2 i { color: #b5a8ff; font-size: 0.85rem; }
+        .ep-count { font-size: 0.72rem; font-weight: 700; color: #9aa6bd; background: rgba(159, 173, 189, 0.08); border: 1px solid rgba(159, 173, 189, 0.1); padding: 2px 10px; border-radius: 999px; }
+
+        .ep-toolbar { display: flex; gap: 0.5rem; padding: 0.45rem 0.6rem; background: rgba(21, 31, 46, 0.6); border-bottom: 1px solid rgba(159, 173, 189, 0.1); flex-wrap: wrap; }
+        .ep-range-select { flex-shrink: 0; padding: 0.5rem 0.6rem; background: #151f2e; color: #c8d0e0; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; font-size: 0.78rem; font-weight: 600; text-align: center; cursor: pointer; outline: none; max-width: 160px; }
+        .ep-filter { display: flex; flex: 1; align-items: center; gap: 0.4rem; padding: 0.5rem 0.6rem; background: #1b2536; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; min-width: 120px; transition: background-color .15s; }
+        .ep-filter:focus-within { background: #243146; }
+        .ep-filter i { font-size: 0.75rem; color: #7a86a0; }
+        .ep-filter input { width: 100%; background: transparent; border: none; outline: none; color: #e8ecf4; font-size: 0.78rem; }
+        .ep-filter input::placeholder { color: #7a86a0; }
+        .ep-tool-btn { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; color: #c8d0e0; cursor: pointer; background: #1b2536; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; transition: background-color .15s, color .15s; }
+        .ep-tool-btn:hover { background: #243146; }
+        .ep-tool-btn:active { transform: scale(0.9); }
+        .ep-tool-btn.active { color: #fff; background: #595991; border-color: transparent; }
+
+        .ep-next-banner { display: flex; align-items: center; gap: 8px; margin: 0.5rem 0.6rem 0; padding: 0.5rem 0.7rem; background: rgba(181, 168, 255, 0.08); border: 1px solid rgba(181, 168, 255, 0.25); border-radius: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #cbbfff; }
+        .ep-next-banner i { color: #b5a8ff; }
+        .ep-next-banner .air-at { margin-left: auto; font-weight: 800; color: #b5a8ff; white-space: nowrap; }
+
+        /* Episode List */
+        .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr)); gap: 0.24rem; padding: 0.4rem; align-content: start; max-height: 420px; overflow-y: auto; }
+        .episode-grid::-webkit-scrollbar { width: 5px; }
+        .episode-grid::-webkit-scrollbar-track { background: #1b2536; border-radius: 4px; }
+        .episode-grid::-webkit-scrollbar-thumb { background: #595991; border-radius: 4px; }
+        .ep-btn {
+            display: flex; align-items: center; justify-content: center; height: 2.5rem;
+            padding: 0.4rem 0; color: #9aa6bd; text-align: center; cursor: pointer;
+            background: #151f2e; border: none; border-radius: 0.5rem;
+            transform: scale(0.98); font-size: 0.78rem; font-weight: 700;
+            transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s;
+        }
+        .ep-btn:hover, .ep-btn:focus { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 5px rgba(0, 0, 0, 0.6); transform: scale(1); }
+        .ep-btn.active { background: #595991; color: #fff; }
+        .ep-btn.loading { opacity: 0.5; pointer-events: none; }
+        .ep-btn.watched:not(.active) { color: #3f8f5f; }
+        .ep-btn.watched:not(.active)::after { content: '\2713'; position: absolute; top: 2px; right: 5px; font-size: 0.55rem; color: #22c55e; }
+        .ep-btn { position: relative; }
+        .episode-grid.list .ep-grid-item.list-row.watched:not(.active) .ep-num { color: #22c55e; }
+        .episode-grid.image .ep-grid-item.image-card.watched:not(.active)::after { content: '\2713'; position: absolute; top: 6px; right: 6px; background: rgba(34, 197, 94, 0.85); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; }
+        .episode-grid.image .ep-grid-item.image-card.watched:not(.active) { opacity: 0.85; }
+
+        /* List (row) view */
+        .episode-grid.list { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
+        .ep-grid-item.list-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0.5rem; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; cursor: pointer; color: #9aa6bd; font-size: 0.78rem; transform: scale(0.98); transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s; }
+        .ep-grid-item.list-row:hover, .ep-grid-item.list-row:focus { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 5px rgba(0, 0, 0, 0.6); transform: scale(1); }
+        .ep-grid-item.list-row.active { background: #595991; color: #fff; }
+        .ep-grid-item.list-row .ep-num { font-weight: 800; min-width: 44px; }
+        .ep-grid-item.list-row .ep-row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Image view */
+        .episode-grid.image { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; }
+        .ep-grid-item.image-card { position: relative; aspect-ratio: 16 / 9; border-radius: 0.5rem; overflow: hidden; cursor: pointer; border: 2px solid transparent; background: #151f2e center / cover no-repeat; display: flex; align-items: flex-end; height: auto; transition: border-color .15s, filter .15s; }
+        .ep-grid-item.image-card:hover { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); }
+        .ep-grid-item.image-card.active { border-color: #b5a8ff; }
+        .ep-grid-item.image-card .ep-num { position: absolute; top: 6px; left: 6px; background: rgba(0, 0, 0, 0.65); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; color: #fff; }
+        .ep-grid-item.image-card .ep-title { width: 100%; padding: 5px 6px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.85)); font-size: 0.62rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Spoilers mode */
+        .episode-grid.spoilers .ep-btn,
+        .episode-grid.spoilers .ep-row-title,
+        .episode-grid.spoilers .ep-title { filter: blur(5px); }
+
+        /* Server Buttons (miruro "Source & Data" style) */
+        .server-panel { padding: 0; overflow: hidden; }
+        .server-panel .panel-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 0.75rem 0.9rem; border-bottom: 1px solid rgba(159, 173, 189, 0.1);
+        }
+        .server-panel .panel-head h2 { margin-bottom: 0; }
+        .server-panel .server-body { padding: 0.75rem 0.9rem 0.4rem; }
+        .server-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sv-btn {
+            padding: 8px 14px; background: #1b2536; border: 1px solid rgba(159, 173, 189, 0.1);
+            border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600;
+            color: #9aa6bd; transition: all .15s;
+        }
+        .sv-btn:hover { background: #243146; border-color: rgba(255, 255, 255, 0.25); color: #e8ecf4; }
+        .sv-btn.active { background: #e45f3a; border-color: #e45f3a; color: #fff; }
+        .sv-btn.sub { border-left: 3px solid #22c55e; }
+        .sv-btn.dub { border-left: 3px solid #f59e0b; }
+        .sv-btn.raw { border-left: 3px solid #ef4444; }
+        .sv-btn.embed { border-left: 3px solid #a855f7; }
+        .sv-btn .embed-badge { font-size: 0.6rem; font-weight: 700; background: #a855f7; color: #fff; padding: 1px 6px; border-radius: 8px; margin-left: 6px; vertical-align: 1px; }
+
+        .server-section { margin-bottom: 14px; }
+        .server-type-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; color: #5a6280; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+        .server-type-label::after { content: ''; flex: 1; height: 1px; background: rgba(159, 173, 189, 0.1); }
+
+        /* Episode meta info */
+        .ep-meta { color: #7a82a0; font-size: 0.85rem; margin-bottom: 12px; }
+        .ep-meta span { margin-right: 12px; }
+        .ep-meta i { margin-right: 4px; color: #e45f3a; }
+
+        .loading-text { color: #5a6280; font-size: 0.85rem; padding: 12px 0; }
+
+        /* Error state */
+        .error-msg {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 40px; text-align: center; color: #7a82a0; gap: 12px;
+        }
+        .error-msg i { font-size: 2.5rem; color: #ef4444; }
+        .error-msg p { font-size: 0.95rem; max-width: 400px; line-height: 1.6; }
+        .retry-btn {
+            padding: 8px 24px; background: #e51e3a; border: none; border-radius: 6px;
+            color: #fff; font-weight: 600; cursor: pointer; transition: all .2s;
+        }
+        .retry-btn:hover { background: #c01830; }
+
+        /* ============ Anikaitv-style site header (menu fixes) ============ */
+        header {
+            position: relative !important;
+            margin-bottom: 0;
+            padding-top: 0.9rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--c-border);
+        }
+        header .wrapper { height: auto; min-height: 4.2rem; padding: 0 0.5rem; }
+        header .wrapper .start { width: auto; position: relative; margin-right: 2.5rem; }
+        header #menu { position: static; }
+        header #menu-toggler { margin-right: 10px; }
+        header .logo { margin-right: 2rem; }
+
+        header #menu > ul {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            min-width: 240px;
+            margin: 0;
+            padding: 10px 0;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+            z-index: 60;
+        }
+
+        @media (min-width: 1200px) {
+            header #menu:hover > ul,
+            header #menu.open > ul { display: block; }
+        }
+        @media (max-width: 1199.98px) {
+            header #menu.open > ul { display: block; }
+            header #menu > ul {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                max-height: calc(100vh - 6rem);
+                overflow-y: auto;
+                border-radius: 0 0 10px 10px;
+            }
+            header #menu > ul > li > ul,
+            header #menu > ul > li.active > ul {
+                position: static;
+                left: auto;
+                width: 100% !important;
+                height: auto;
+                padding: 0 0 0 18px;
+                overflow: visible;
+            }
+            header #menu > ul > li.active > ul > li { opacity: 1; float: none; width: 100% !important; }
+            header #menu > ul > li > a { font-size: 1rem; }
+            header #search .search-popup { display: none !important; }
+        }
+
+        /* ============ Footer (centered, miruro-style) ============ */
+        footer { border-top: 1px solid var(--c-border); }
+        footer .row { justify-content: center; text-align: center; }
+        footer .row > div { flex: 1 1 100%; width: 100%; max-width: 900px; }
+        footer .logos { justify-content: center; margin-bottom: 18px; }
+        footer .logos .logo { height: 3.4rem; }
+        footer .copyright { color: var(--c-text); font-size: 1rem; font-weight: 600; }
+        footer .copyright strong { color: var(--c-text-bright); }
+        footer .disclaimer { color: var(--c-text-3); font-size: 0.9rem; max-width: 680px; margin: 8px auto 0; }
+        .version-badge {
+            display: inline-block;
+            padding: 0.15rem 0.45rem;
+            margin-left: 0.25rem;
+            font-family: 'Consolas', 'Menlo', monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--c-text-bright);
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            border-radius: 6px;
+            vertical-align: 1px;
+        }
+    </style>
+</head>
+<body>
+            <header>
+                <div class="container">
+                    <div class="wrapper align-items-center">
+                        <div class="start d-flex">
+                            <div id="menu">
+                                <ul>
+                                    <li>
+                                        <a href="/home">Home</a>
+                                    </li>
+                                    <li>
+                                        <ul class="c4">
+                                            <li>
+                                                <a href="/genre/action" title="Action">
+                                                    <h3>Action</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/adventure" title="Adventure">
+                                                    <h3>Adventure</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/boys-love" title="Boys Love">
+                                                    <h3>Boys Love</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/cars" title="Cars">
+                                                    <h3>Cars</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/comedy" title="Comedy">
+                                                    <h3>Comedy</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/dementia" title="Dementia">
+                                                    <h3>Dementia</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/demons" title="Demons">
+                                                    <h3>Demons</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/drama" title="Drama">
+                                                    <h3>Drama</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/ecchi" title="Ecchi">
+                                                    <h3>Ecchi</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/erotica" title="Erotica">
+                                                    <h3>Erotica</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/fantasy" title="Fantasy">
+                                                    <h3>Fantasy</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/game" title="Game">
+                                                    <h3>Game</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/girls-love" title="Girls Love">
+                                                    <h3>Girls Love</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/gourmet" title="Gourmet">
+                                                    <h3>Gourmet</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/harem" title="Harem">
+                                                    <h3>Harem</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/historical" title="Historical">
+                                                    <h3>Historical</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/horror" title="Horror">
+                                                    <h3>Horror</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/isekai" title="Isekai">
+                                                    <h3>Isekai</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/josei" title="Josei">
+                                                    <h3>Josei</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/kids" title="Kids">
+                                                    <h3>Kids</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/magic" title="Magic">
+                                                    <h3>Magic</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/martial-arts" title="Martial Arts">
+                                                    <h3>Martial Arts</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/mecha" title="Mecha">
+                                                    <h3>Mecha</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/military" title="Military">
+                                                    <h3>Military</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/music" title="Music">
+                                                    <h3>Music</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/mystery" title="Mystery">
+                                                    <h3>Mystery</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/parody" title="Parody">
+                                                    <h3>Parody</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/police" title="Police">
+                                                    <h3>Police</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/psychological" title="Psychological">
+                                                    <h3>Psychological</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/romance" title="Romance">
+                                                    <h3>Romance</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/samurai" title="Samurai">
+                                                    <h3>Samurai</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/school" title="School">
+                                                    <h3>School</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/sci-fi" title="Sci-Fi">
+                                                    <h3>Sci-Fi</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/seinen" title="Seinen">
+                                                    <h3>Seinen</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/shoujo" title="Shoujo">
+                                                    <h3>Shoujo</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/shoujo-ai" title="Shoujo Ai">
+                                                    <h3>Shoujo Ai</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/shounen" title="Shounen">
+                                                    <h3>Shounen</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/shounen-ai" title="Shounen Ai">
+                                                    <h3>Shounen Ai</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/slice-of-life" title="Slice of Life">
+                                                    <h3>Slice of Life</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/space" title="Space">
+                                                    <h3>Space</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/sports" title="Sports">
+                                                    <h3>Sports</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/super-power" title="Super Power">
+                                                    <h3>Super Power</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/supernatural" title="Supernatural">
+                                                    <h3>Supernatural</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/suspense" title="Suspense">
+                                                    <h3>Suspense</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/thriller" title="Thriller">
+                                                    <h3>Thriller</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/unknown" title="unknown">
+                                                    <h3>unknown</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/genre/vampire" title="Vampire">
+                                                    <h3>Vampire</h3>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <a>Genre</a>
+                                    </li>
+                                    <li>
+                                        <ul class="c1">
+                                            <li>
+                                                <a href="/type/movie" title="Movie">
+                                                    <h3>Movie</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/music" title="Music">
+                                                    <h3>Music</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/ona" title="ONA">
+                                                    <h3>ONA</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/ova" title="OVA">
+                                                    <h3>OVA</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/special" title="Special">
+                                                    <h3>Special</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/tv" title="TV">
+                                                    <h3>TV</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/tv-short" title="TV_SHORT">
+                                                    <h3>TV_SHORT</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/tv-special" title="TV Special">
+                                                    <h3>TV Special</h3>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="/type/unknown" title="unknown">
+                                                    <h3>unknown</h3>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <a>Types</a>
+                                    </li>
+                                    <li>
+                                        <a href="/latest-updated" title="Updated">Updated</a>
+                                    </li>
+                                    <li>
+                                        <a href="/new-release" title="Added">Added</a>
+                                    </li>
+                                    <li>
+                                        <a href="/most-viewed" title="Most Viewed">Popular</a>
+                                    </li>
+                                    <li>
+                                        <a href="/status/not-yet-aired" title="Upcoming">Upcoming</a>
+                                    </li>
+                                    <li>
+                                        <a href="/status/currently-airing" title="Ongoing">Ongoing</a>
+                                    </li>
+                                    <li>
+                                        <a href="/status/finished-airing" title="Finished">Finished</a>
+                                    </li>
+                                    <li class="mb">
+                                        <a href="/random">Random</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div id="menu-toggler">
+                                <i></i>
+                                <i></i>
+                                <i></i>
+                            </div>
+                            <div class="logo">
+                                <a href="/home">
+                                    <img src='logo.png' alt='AnimeKai'/>
+                                </a>
+                            </div>
+                            <div id="search">
+                                <form method="get" autocomplete="off" action="#">
+                                    <button type="button">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </button>
+                                    <input type="text" name="keyword" placeholder="Search anime..."/>
+                                    <div class="tip">
+                                        <svg class="icon">
+                                            <use xlink:href="#icon-search-shortcut"></use>
+                                        </svg>
+                                        <span>Quick Access</span>
+                                    </div>
+                                    <div class="search-popup">
+                                        <div class="s-close">Clear</div>
+                                        <div class="inner">
+                                            <div class="head-box">
+                                                <div class="tabs-sm">
+                                                    <div class="tab active">Anime</div>
+                                                </div>
+                                                <div class="actions">
+                                                    <a class="filter" href="#">
+                                                        <svg class="icon">
+                                                            <use xlink:href="#icon-tip-filter"></use>
+                                                        </svg>
+                                                        <span>Filter</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <div class="body"></div>
+                                            <div class="foot">
+                                                <div class="nav-tip">
+                                                    <span>
+                                                        <svg class="icon">
+                                                            <use xlink:href="#icon-tip-arrow-down"></use>
+                                                        </svg>
+                                                        <svg class="icon">
+                                                            <use xlink:href="#icon-tip-arrow-up"></use>
+                                                        </svg>
+                                                        <span>to navigate</span>
+                                                    </span>
+                                                    <span>
+                                                        <svg class="icon">
+                                                            <use xlink:href="#icon-tip-enter"></use>
+                                                        </svg>
+                                                        <span>to select</span>
+                                                    </span>
+                                                    <span>
+                                                        <svg class="icon">
+                                                            <use xlink:href="#icon-tip-esc"></use>
+                                                        </svg>
+                                                        <span>to exit</span>
+                                                    </span>
+                                                </div>
+                                                <a class="more" href="#" style="display: none">
+                                                    View all <i class="fas fa-long-arrow-right"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="end d-flex justify-content-between">
+                            <div id="quick-menu" class="d-flex justify-content-around">
+                                <a id="random-anime" href="/random" class="main-menu" data-toggle="tooltip" title="Watch a random anime">
+                                    <svg class="icon">
+                                        <use xlink:href="#icon-random"></use>
+                                    </svg>
+                                    <span>Random</span>
+                                </a>
+                                <div id="lang">
+                                    <div class="settings-options switch" data-switch="title_lang" data-persist="true">
+                                        <span data-value="en" class="active">EN</span>
+                                        <span data-value="jp">JP</span>
+                                    </div>
+                                </div>
+                                <div id="socials"></div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-end">
+                                <div id="search-toggler">
+                                    <i class="fas fa-search"></i>
+                                </div>
+                                <div id="user">
+                                    <div class="placeholder"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+        <svg class="d-none">
+            <symbol id="icon-search-shortcut" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.47 26.875">
+                <path d="M1599.25,69.947h-15.1a6.165,6.165,0,0,0-6.18,6.14V90.66a6.165,6.165,0,0,0,6.18,6.14h15.1a6.165,6.165,0,0,0,6.18-6.14V76.086A6.165,6.165,0,0,0,1599.25,69.947Zm-19.45,6.14a4.339,4.339,0,0,1,4.35-4.32h15.1a4.339,4.339,0,0,1,4.35,4.32v10.74a4.339,4.339,0,0,1-4.35,4.32h-15.1a4.339,4.339,0,0,1-4.35-4.32V76.086Zm19.45,18.894h-15.1a4.343,4.343,0,0,1-4.31-3.76,6.184,6.184,0,0,0,4.31,1.745h15.1a6.183,6.183,0,0,0,4.31-1.746A4.344,4.344,0,0,1,1599.25,94.98Zm-5.88-10.235a2.583,2.583,0,0,1-1.47.316,6.074,6.074,0,0,1-1.36-.154,4.726,4.726,0,0,1-1.27-.477,0.9,0.9,0,0,0-.61-0.1,0.8,0.8,0,0,0-.46.281,1.1,1.1,0,0,0-.21.5,1.077,1.077,0,0,0,.09.555,1.04,1.04,0,0,0,.44.443,4.778,4.778,0,0,0,1,.421,8.131,8.131,0,0,0,1.17.26,8.276,8.276,0,0,0,1.21.091,6.022,6.022,0,0,0,1.68-.218,3.934,3.934,0,0,0,1.29-.625,2.715,2.715,0,0,0,.81-0.976,2.8,2.8,0,0,0,.29-1.27,2.291,2.291,0,0,0-.68-1.721,4.177,4.177,0,0,0-2.06-.948l-1.6-.337a2.4,2.4,0,0,1-1.03-.407,0.821,0.821,0,0,1-.3-0.66,1.06,1.06,0,0,1,.22-0.646,1.427,1.427,0,0,1,.64-0.436,2.88,2.88,0,0,1,1.01-.154,5.169,5.169,0,0,1,1.07.112,4.012,4.012,0,0,1,.99.351,1.033,1.033,0,0,0,.65.127,0.761,0.761,0,0,0,.44-0.253,0.881,0.881,0,0,0,.22-0.457,1.042,1.042,0,0,0-.07-0.519,0.884,0.884,0,0,0-.39-0.428,4.7,4.7,0,0,0-1.34-.555,6.476,6.476,0,0,0-1.56-.19,5.609,5.609,0,0,0-1.63.225,3.932,3.932,0,0,0-1.28.646,3.01,3.01,0,0,0-.83,1,2.729,2.729,0,0,0-.3,1.278,2.465,2.465,0,0,0,.66,1.791,3.812,3.812,0,0,0,2.01.962l1.6,0.337a2.767,2.767,0,0,1,1.08.408,0.772,0.772,0,0,1,.32.646A0.954,0.954,0,0,1,1593.37,84.745Z" transform="translate(-1577.97 -69.938)"></path>
+            </symbol>
+            <symbol id="icon-watch2gether" fill="currentColor" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 136.23 155.73">
+                <path d="M120.54,69.91L73.11,42.52c-6.13-3.54-13.79,0.88-13.79,7.96v54.76c0,7.08,7.66,11.5,13.79,7.96l47.43-27.38 C126.67,82.29,126.67,73.44,120.54,69.91z"></path>
+                <path d="M44.12,72.87H32.08c-2.12-6.63-8.32-11.43-15.65-11.43C7.36,61.44,0,68.79,0,77.87 C0,86.94,7.36,94.3,16.43,94.3c7.33,0,13.53-4.8,15.65-11.43h12.03c2.76,0,5-2.24,5-5S46.88,72.87,44.12,72.87z"></path>
+                <path d="M101.2,48.64c0.79,0.45,1.65,0.67,2.5,0.67c1.73,0,3.41-0.9,4.33-2.5l8.27-14.33 c1.13,0.24,2.29,0.38,3.49,0.38c9.07,0,16.43-7.36,16.43-16.43C136.23,7.36,128.87,0,119.8,0c-9.07,0-16.43,7.36-16.43,16.43 c0,4.25,1.63,8.12,4.28,11.04l-8.28,14.34C97.99,44.2,98.81,47.26,101.2,48.64z"></path>
+                <path d="M119.8,122.87c-1.2,0-2.37,0.14-3.49,0.38l-8.08-13.99c-1.38-2.39-4.44-3.21-6.83-1.83 c-2.39,1.38-3.21,4.44-1.83,6.83l8.08,14c-2.65,2.92-4.28,6.78-4.28,11.04c0,9.07,7.36,16.43,16.43,16.43 c9.07,0,16.43-7.36,16.43-16.43C136.23,130.23,128.87,122.87,119.8,122.87z"></path>
+            </symbol>
+            <symbol id="icon-random" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25.28 26.281">
+                <path d="M2056.22,92.021c-1.06,0-2.09,0-3.11,0a9.006,9.006,0,0,1-1.26-.041,2.907,2.907,0,0,1-1.98-1.309c-0.46-.674-0.83-1.415-1.23-2.131a6.668,6.668,0,0,1-.31-0.679c-0.13.3-.22,0.5-0.31,0.706a8.488,8.488,0,0,1-1.59,2.523,2.917,2.917,0,0,1-2.2.936c-1.23-.018-2.47,0-3.7-0.005a1.638,1.638,0,1,1,0-3.275c1.1,0,2.21-.016,3.31.009a0.685,0.685,0,0,0,.73-0.413c0.44-.962.88-1.92,1.27-2.9,0.29-.716.51-1.463,0.75-2.2a0.739,0.739,0,0,0,.02-0.388q-0.855-2.31-1.72-4.612l-0.03-.075a1.247,1.247,0,0,0-1.42-.913c-0.96.081-1.94,0.022-2.91,0.018a1.638,1.638,0,1,1,0-3.275c1.22,0,2.44.018,3.66-.007a2.979,2.979,0,0,1,2.38,1.081,8.773,8.773,0,0,1,1.67,2.9c0.72,1.99,1.36,4.01,2.08,6,0.48,1.353,1.04,2.68,1.56,4.016a1.089,1.089,0,0,0,1.22.771c1.02-.064,2.04-0.017,3.12-0.017,0-.845-0.01-1.658.01-2.472a1.553,1.553,0,0,1,1.74-1.6,2.6,2.6,0,0,1,1.05.52c0.59,0.441,1.13.941,1.69,1.42,0.8,0.688,1.59,1.377,2.39,2.069,0.14,0.123.28,0.251,0.41,0.386a1.684,1.684,0,0,1,0,2.614c-1.02.966-2.1,1.865-3.16,2.778a17.4,17.4,0,0,1-1.74,1.4,1.554,1.554,0,0,1-2.39-1.4V92.021Zm0-14.749c-1.26,0-2.47-.009-3.67.013a0.565,0.565,0,0,0-.39.293c-0.37.736-.71,1.485-1.06,2.232-0.08.169-.14,0.348-0.24,0.612-0.08-.179-0.13-0.278-0.17-0.379-0.44-1.15-.89-2.3-1.32-3.456a0.694,0.694,0,0,1,.03-0.548,3.714,3.714,0,0,1,2.38-1.994,2.961,2.961,0,0,1,.58-0.051c1.14,0,2.27,0,3.4,0h0.46c0-.79.01-1.537,0-2.284a1.68,1.68,0,0,1,.86-1.627,1.438,1.438,0,0,1,1.73.2c1.24,1.032,2.47,2.087,3.69,3.136,0.34,0.286.68,0.571,0.99,0.885a1.692,1.692,0,0,1-.02,2.67c-1.01.953-2.08,1.842-3.13,2.745a17.165,17.165,0,0,1-1.74,1.4,1.554,1.554,0,0,1-2.38-1.415V77.272Z" transform="translate(-2038.88 -69.875)"></path>
+            </symbol>
+            <symbol id="icon-forum" fill="currentColor" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" viewBox="0 0 172.53 120.37">
+                <path d="M74.33,0C33.26,0,0,24.88,0,55.59c0,18.32,11.9,34.61,30.23,44.72c-1.79,6.25-5.97,14.01-15.63,19.46 c0,0,18.25,4.66,33.78-12.11c8.07,2.24,16.84,3.49,25.98,3.49c41.06,0,74.33-24.88,74.33-55.56C148.69,24.91,115.39,0,74.33,0z M103.32,64.58L64.11,87.22c-6.13,3.54-13.79-0.88-13.79-7.96V33.98c0-7.08,7.66-11.5,13.79-7.96l39.21,22.64 C109.45,52.2,109.45,61.04,103.32,64.58z"></path>
+                <path d="M154.93,105.66c10.7-5.9,17.6-15.39,17.6-26.05c0-9.72-5.77-18.45-14.86-24.39c0,0.12,0.01,0.25,0.01,0.37 c0,17.75-9.01,34.26-25.38,46.49c-4.48,3.35-9.39,6.26-14.61,8.71c3.67,0.76,7.52,1.18,11.49,1.18c5.31,0,10.42-0.72,15.15-2.04 c9.04,9.77,19.67,7.04,19.67,7.04C158.39,113.84,155.97,109.28,154.93,105.66z"></path>
+            </symbol>
+            <symbol id="icon-tip-filter" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 17.43 17.438">
+                <defs></defs>
+                <path d="M1666.63,124.643c-4.18,0-8.74.873-8.74,2.806v2.806a0.5,0.5,0,0,0,.19.437l6.05,4.8v5.987a0.766,0.766,0,0,0,.31.561,0.482,0.482,0,0,0,.31.062,0.3,0.3,0,0,0,.25-0.062l4.37-2.5a0.7,0.7,0,0,0,.37-0.561v-3.492l5.43-4.8a0.7,0.7,0,0,0,.19-0.437v-2.806C1675.36,125.516,1670.8,124.643,1666.63,124.643Zm0,1.247c4.98,0,7.42,1.123,7.48,1.559-0.06.437-2.5,1.559-7.48,1.559s-7.43-1.122-7.49-1.559C1659.2,127.013,1661.64,125.89,1666.63,125.89Z" transform="translate(-1657.91 -124.656)"></path>
+            </symbol>
+            <symbol id="icon-tip-arrow-down" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.22 27">
+                <path d="M1050.84,704.005h-14.15a6.509,6.509,0,0,0-6.52,6.476V724.52a6.509,6.509,0,0,0,6.52,6.476h14.15a6.511,6.511,0,0,0,6.53-6.476V710.481A6.511,6.511,0,0,0,1050.84,704.005Zm-18.81,6.476a4.648,4.648,0,0,1,4.66-4.626h14.15a4.657,4.657,0,0,1,4.67,4.626v9.3a4.656,4.656,0,0,1-4.67,4.625h-14.15a4.648,4.648,0,0,1-4.66-4.625v-9.3Zm23.48,14.039a4.657,4.657,0,0,1-4.67,4.626h-14.15a4.648,4.648,0,0,1-4.66-4.626v-0.211a6.541,6.541,0,0,0,4.66,1.952h14.15a6.547,6.547,0,0,0,4.67-1.952v0.211Zm-12.12-15.3h0.66a0.923,0.923,0,0,1,.93.925V717.3a0.923,0.923,0,0,1-.93.925h-0.66a0.93,0.93,0,0,1-.93-0.925V710.14A0.93,0.93,0,0,1,1043.39,709.215Zm1.52,10.65-0.47.464a0.928,0.928,0,0,1-1.31,0l-3.06-3.033a0.911,0.911,0,0,1,0-1.309l0.47-.463a0.926,0.926,0,0,1,1.31,0l3.06,3.033A0.909,0.909,0,0,1,1044.91,719.865Zm-1.82.464-0.46-.464a0.909,0.909,0,0,1,0-1.308l3.05-3.033a0.938,0.938,0,0,1,1.32,0l0.47,0.463a0.928,0.928,0,0,1,0,1.309l-3.06,3.033A0.94,0.94,0,0,1,1043.09,720.329Z" transform="translate(-1030.16 -704)"></path>
+            </symbol>
+            <symbol id="icon-tip-arrow-up" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.19 27">
+                <path d="M1082.48,704.005h-14.15a6.511,6.511,0,0,0-6.53,6.476V724.52a6.511,6.511,0,0,0,6.53,6.476h14.15a6.511,6.511,0,0,0,6.53-6.476V710.481A6.511,6.511,0,0,0,1082.48,704.005Zm-18.81,6.476a4.648,4.648,0,0,1,4.66-4.626h14.15a4.648,4.648,0,0,1,4.66,4.626v9.3a4.648,4.648,0,0,1-4.66,4.625h-14.15a4.648,4.648,0,0,1-4.66-4.625v-9.3Zm23.47,14.039a4.648,4.648,0,0,1-4.66,4.626h-14.15a4.648,4.648,0,0,1-4.66-4.626v-0.211a6.523,6.523,0,0,0,4.66,1.952h14.15a6.506,6.506,0,0,0,4.66-1.952v0.211Zm-11.36-4.056h-0.66a0.93,0.93,0,0,1-.93-0.925v-7.157a0.93,0.93,0,0,1,.93-0.925h0.66a0.932,0.932,0,0,1,.94.925v7.157A0.932,0.932,0,0,1,1075.78,720.464Zm-1.52-10.65,0.47-.464a0.94,0.94,0,0,1,1.32,0l3.06,3.034a0.927,0.927,0,0,1,0,1.308l-0.47.463a0.938,0.938,0,0,1-1.32,0l-3.06-3.033A0.927,0.927,0,0,1,1074.26,709.814Zm1.82-.464,0.47,0.464a0.927,0.927,0,0,1,0,1.308l-3.06,3.033a0.938,0.938,0,0,1-1.32,0l-0.46-.463a0.909,0.909,0,0,1,0-1.308l3.05-3.034A0.94,0.94,0,0,1,1076.08,709.35Z" transform="translate(-1061.81 -704)"></path>
+            </symbol>
+            <symbol id="icon-tip-enter" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.19 27">
+                <path d="M1246.68,704.005h-14.15a6.511,6.511,0,0,0-6.53,6.476V724.52a6.511,6.511,0,0,0,6.53,6.476h14.15a6.509,6.509,0,0,0,6.52-6.476V710.481A6.509,6.509,0,0,0,1246.68,704.005Zm-18.81,6.476a4.648,4.648,0,0,1,4.66-4.626h14.15a4.648,4.648,0,0,1,4.66,4.626v9.3a4.648,4.648,0,0,1-4.66,4.625h-14.15a4.648,4.648,0,0,1-4.66-4.625v-9.3Zm23.47,14.039a4.648,4.648,0,0,1-4.66,4.626h-14.15a4.648,4.648,0,0,1-4.66-4.626v-0.211a6.506,6.506,0,0,0,4.66,1.952h14.15a6.541,6.541,0,0,0,4.66-1.952v0.211Zm-6.68-7.2v0.655a0.93,0.93,0,0,1-.93.925h-7.22a0.93,0.93,0,0,1-.93-0.925v-0.655a0.931,0.931,0,0,1,.93-0.926h7.22A0.931,0.931,0,0,1,1244.66,717.317Zm-0.93,1.58h-0.66a0.932,0.932,0,0,1-.94-0.925v-8.279a0.933,0.933,0,0,1,.94-0.925h0.66a0.93,0.93,0,0,1,.93.925v8.279A0.93,0.93,0,0,1,1243.73,718.9Zm-9.8-.072-0.47-.463a0.909,0.909,0,0,1,0-1.308l3.05-3.034a0.94,0.94,0,0,1,1.32,0l0.47,0.464a0.927,0.927,0,0,1,0,1.308l-3.06,3.033A0.928,0.928,0,0,1,1233.93,718.825Zm-0.47-1.8,0.47-.463a0.928,0.928,0,0,1,1.31,0l3.06,3.033a0.928,0.928,0,0,1,0,1.309l-0.47.463a0.94,0.94,0,0,1-1.32,0l-3.05-3.033A0.911,0.911,0,0,1,1233.46,717.021Z" transform="translate(-1226 -704)"></path>
+            </symbol>
+            <symbol id="icon-tip-esc" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.12 27.125">
+                <path d="M1388.55,731.083h-14.1a6.514,6.514,0,0,1-6.51-6.5v-14.1a6.515,6.515,0,0,1,6.51-6.5h14.1a6.506,6.506,0,0,1,6.5,6.5v14.1A6.506,6.506,0,0,1,1388.55,731.083Zm-14.1-25.253a4.656,4.656,0,0,0-4.65,4.646v14.1a4.656,4.656,0,0,0,4.65,4.646h14.1a4.656,4.656,0,0,0,4.65-4.646v-14.1a4.656,4.656,0,0,0-4.65-4.646h-14.1Zm14.1,20.5h-14.1a6.515,6.515,0,0,1-6.51-6.5v-9.346a6.515,6.515,0,0,1,6.51-6.5h14.1a6.506,6.506,0,0,1,6.5,6.5v9.346A6.506,6.506,0,0,1,1388.55,726.327Zm-14.1-20.5a4.656,4.656,0,0,0-4.65,4.646v9.346a4.656,4.656,0,0,0,4.65,4.646h14.1a4.656,4.656,0,0,0,4.65-4.646v-9.346a4.656,4.656,0,0,0-4.65-4.646h-14.1Zm-1.47,13.774a1.061,1.061,0,0,1-.79-0.269,1.025,1.025,0,0,1-.28-0.781l-0.01-5.707a0.952,0.952,0,0,1,1.06-1.055l3.76-.009a0.8,0.8,0,0,1,.59.2,0.757,0.757,0,0,1,.21.576,0.834,0.834,0,0,1-.2.594,0.8,0.8,0,0,1-.6.205l-2.87.008v1.485l2.63-.007a0.792,0.792,0,0,1,.59.2,0.771,0.771,0,0,1,.21.587,0.812,0.812,0,0,1-.2.588,0.838,0.838,0,0,1-.6.2l-2.62.007v1.607l2.87-.007a0.787,0.787,0,0,1,.6.2,0.808,0.808,0,0,1,.2.581,0.769,0.769,0,0,1-.2.587,0.806,0.806,0,0,1-.6.2Zm8.09,0.1a7.305,7.305,0,0,1-.93-0.059,6.107,6.107,0,0,1-.91-0.181,4.625,4.625,0,0,1-.78-0.286,0.858,0.858,0,0,1-.42-0.381,0.879,0.879,0,0,1-.09-0.5,0.892,0.892,0,0,1,.19-0.471,0.752,0.752,0,0,1,.41-0.279,0.819,0.819,0,0,1,.57.071,4.21,4.21,0,0,0,.96.308,4.787,4.787,0,0,0,.99.109,2,2,0,0,0,1.03-.2,0.578,0.578,0,0,0,.29-0.484,0.484,0.484,0,0,0-.21-0.409,1.838,1.838,0,0,0-.72-0.264l-1.3-.274a2.952,2.952,0,0,1-1.59-.772,2.031,2.031,0,0,1-.52-1.428,2.277,2.277,0,0,1,.24-1.048,2.236,2.236,0,0,1,.67-0.8,3.268,3.268,0,0,1,1.04-.517,4.618,4.618,0,0,1,1.35-.186,5.612,5.612,0,0,1,1.17.124,3.462,3.462,0,0,1,1.02.38,0.827,0.827,0,0,1,.37.365,1,1,0,0,1,.09.481,0.836,0.836,0,0,1-.17.438,0.7,0.7,0,0,1-.4.251,0.95,0.95,0,0,1-.59-0.082,3.216,3.216,0,0,0-.73-0.214,4.449,4.449,0,0,0-.78-0.07,2.23,2.23,0,0,0-.7.1,0.971,0.971,0,0,0-.44.273,0.616,0.616,0,0,0-.15.41,0.528,0.528,0,0,0,.2.393,1.75,1.75,0,0,0,.72.27l1.28,0.274a3.182,3.182,0,0,1,1.61.761,1.894,1.894,0,0,1,.54,1.384,2.243,2.243,0,0,1-.24,1.042,2.162,2.162,0,0,1-.66.793,3.153,3.153,0,0,1-1.04.507A4.857,4.857,0,0,1,1381.07,719.707Zm7.81-.019a4.67,4.67,0,0,1-2.23-.493,3.432,3.432,0,0,1-1.43-1.4,4.372,4.372,0,0,1-.49-2.126,4.58,4.58,0,0,1,.27-1.652,3.5,3.5,0,0,1,2.13-2.094,4.966,4.966,0,0,1,1.73-.286,5.036,5.036,0,0,1,1.06.113,3.423,3.423,0,0,1,.97.347,0.922,0.922,0,0,1,.43.42,0.951,0.951,0,0,1,.09.521,1.033,1.033,0,0,1-.2.477,0.693,0.693,0,0,1-.93.212,3.793,3.793,0,0,0-.66-0.237,2.652,2.652,0,0,0-.68-0.081,2.257,2.257,0,0,0-1.14.263,1.608,1.608,0,0,0-.69.761,2.694,2.694,0,0,0-.23,1.23,3.018,3.018,0,0,0,.23,1.235,1.663,1.663,0,0,0,.7.764,2.284,2.284,0,0,0,1.14.257,2.814,2.814,0,0,0,.62-0.074,3.079,3.079,0,0,0,.66-0.228,0.906,0.906,0,0,1,.59-0.079,0.785,0.785,0,0,1,.42.264,0.97,0.97,0,0,1,.21.46,0.865,0.865,0,0,1-.48.927,3.3,3.3,0,0,1-.95.367A4.988,4.988,0,0,1,1388.88,719.688Z" transform="translate(-1367.94 -703.969)"></path>
+            </symbol>
+            <symbol id="icon-list-1" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.96 16.937">
+                <path d="M2812.18,416.314h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2812.18,416.314Zm7.23,0h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2819.41,416.314Zm7.24,0h-3.11a1.226,1.226,0,0,1-1.21-1.231v-2.146a1.226,1.226,0,0,1,1.21-1.231h3.11a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2826.65,416.314Zm-14.47,6.171h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h3.1a1.219,1.219,0,0,1,1.21,1.23v2.146A1.219,1.219,0,0,1,2812.18,422.485Zm7.23,0h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h3.1a1.219,1.219,0,0,1,1.21,1.23v2.146A1.219,1.219,0,0,1,2819.41,422.485Zm7.24,0h-3.11a1.226,1.226,0,0,1-1.21-1.231v-2.146a1.226,1.226,0,0,1,1.21-1.23h3.11a1.226,1.226,0,0,1,1.21,1.23v2.146A1.226,1.226,0,0,1,2826.65,422.485Zm-14.47,6.171h-3.1a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2812.18,428.656Zm7.23,0h-3.1a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2819.41,428.656Zm7.24,0h-3.11a1.226,1.226,0,0,1-1.21-1.23V425.28a1.226,1.226,0,0,1,1.21-1.231h3.11a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2826.65,428.656Z" transform="translate(-2807.88 -411.719)"></path>
+            </symbol>
+            <symbol id="icon-list-2" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.96 16.937">
+                <path d="M2884.8,416.314h-6.72a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h6.72a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2884.8,416.314Zm10.85,0h-6.72a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h6.72a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2895.65,416.314Zm-10.85,6.171h-6.72a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h6.72a1.219,1.219,0,0,1,1.21,1.23v2.146A1.219,1.219,0,0,1,2884.8,422.485Zm10.85,0h-6.72a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h6.72a1.226,1.226,0,0,1,1.21,1.23v2.146A1.226,1.226,0,0,1,2895.65,422.485Zm-10.85,6.171h-6.72a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h6.72a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2884.8,428.656Zm10.85,0h-6.72a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h6.72a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2895.65,428.656Z" transform="translate(-2876.88 -411.719)"></path>
+            </symbol>
+            <symbol id="icon-list-3" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.96 16.937">
+                <path d="M2847.18,416.314h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2847.18,416.314Zm14.47,0h-10.34a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.231h10.34a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2861.65,416.314Zm-14.47,6.171h-3.1a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h3.1a1.219,1.219,0,0,1,1.21,1.23v2.146A1.219,1.219,0,0,1,2847.18,422.485Zm14.47,0h-10.34a1.219,1.219,0,0,1-1.21-1.231v-2.146a1.219,1.219,0,0,1,1.21-1.23h10.34a1.226,1.226,0,0,1,1.21,1.23v2.146A1.226,1.226,0,0,1,2861.65,422.485Zm-14.47,6.171h-3.1a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h3.1a1.219,1.219,0,0,1,1.21,1.231v2.146A1.219,1.219,0,0,1,2847.18,428.656Zm14.47,0h-10.34a1.219,1.219,0,0,1-1.21-1.23V425.28a1.219,1.219,0,0,1,1.21-1.231h10.34a1.226,1.226,0,0,1,1.21,1.231v2.146A1.226,1.226,0,0,1,2861.65,428.656Z" transform="translate(-2842.88 -411.719)"></path>
+            </symbol>
+        </svg>
+<div class="watch-container">
+    <div class="watch-header">
+        <button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-left"></i></button>
+        <div>
+            <h1 id="pageTitle">Loading anime...</h1>
+            <div class="slug-info" id="slugInfo"></div>
+        </div>
+    </div>
+
+    <div class="watch-wrapper" id="watchWrapper" data-theater-mode="false">
+        <div class="player-col">
+            <div id="player-wrapper">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <span>Loading video...</span>
+                </div>
+                <iframe id="playerFrame" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            </div>
+
+            <div id="controls-bar">
+                <button class="ctrl forward prev" id="prevEpBtn" title="Previous Episode" onclick="changeEpisode(-1)"><i class="fas fa-chevron-left"></i></button>
+
+                <div class="current-episode-info">
+                    <div class="current-episode-name" id="currentEpName">Episode —</div>
+                    <div class="current-episode-type" id="currentEpType"></div>
+                </div>
+
+                <div class="controls-right">
+                    <div class="ctrl check" title="Start playing automatically">
+                        <input type="checkbox" id="autoPlayChk">
+                        <label for="autoPlayChk">Auto Play</label>
+                    </div>
+                    <div class="ctrl check" title="Automatically play the next episode">
+                        <input type="checkbox" id="autoNextChk">
+                        <label for="autoNextChk">Auto Next</label>
+                    </div>
+                    <div class="ctrl check auto-skip" title="Automatically skip the intro & outro">
+                        <input type="checkbox" id="autoSkipChk">
+                        <label for="autoSkipChk">Auto Skip</label>
+                    </div>
+
+                    <div class="ctrl skiptime" id="skipTimeCtrl">
+                        <button class="ctrl" id="skipTimeBtn"><i class="fas fa-forward"></i> Skip</button>
+                        <div class="dropdown-menu" id="skipTimeMenu"></div>
+                    </div>
+
+                    <div class="ctrl layout" id="ctrlLayout" title="Toggle Theater Layout" onclick="toggleLayout()"><i class="fas fa-columns"></i></div>
+                    <div class="ctrl light" id="ctrlLight" title="Toggle Light Mode" onclick="toggleLight()"><i class="fas fa-sun"></i></div>
+                    <div class="ctrl expand" id="ctrlExpand" title="Fullscreen Player" onclick="expandPlayer()"><i class="fas fa-expand"></i></div>
+                </div>
+
+                <button class="ctrl forward next" id="nextEpBtn" title="Next Episode" onclick="changeEpisode(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+
+            <div class="panel server-panel" id="serverPanel">
+                <div class="panel-head">
+                    <h2><i class="fas fa-server"></i> Source &amp; Data</h2>
+                    <span class="ep-count" id="svCount">—</span>
+                </div>
+                <div class="server-body">
+                    <div id="serverList">
+                        <div class="loading-text">Select an episode to see servers</div>
+                    </div>
+                    <div id="miruroList"></div>
+                    <div id="megapList"></div>
+                    <div id="embedList"></div>
+                </div>
+            </div>
+
+            <div class="panel synopsis-panel">
+                <h2><i class="fas fa-align-left"></i> Synopsis</h2>
+                <div class="w-synopsis" id="infoSynopsis">Loading synopsis...</div>
+            </div>
+        </div>
+
+        <aside class="ep-sidebar">
+            <div class="info-sidebar" id="infoSidebar">
+                <div class="poster-wrap"><img id="posterImg" src="" alt=""></div>
+                <div class="info-body">
+                    <div class="w-title" id="infoTitle">—</div>
+                    <div class="w-score" id="infoScore"></div>
+                    <div class="w-airing" id="infoAiring" style="display:none"></div>
+                    <div class="w-meta" id="infoMeta"></div>
+                    <div class="w-genres" id="infoGenres"></div>
+                </div>
+            </div>
+
+            <div class="panel ep-panel" id="episodePanel">
+                <div class="ep-panel-head">
+                    <h2><i class="fas fa-list"></i> Episodes</h2>
+                    <span class="ep-count" id="epCount">—</span>
+                </div>
+                <div class="ep-next-banner" id="nextEpBanner" style="display:none">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span id="nextEpBannerText"></span>
+                </div>
+                <div class="ep-meta" id="epMeta"></div>
+                <div class="ep-toolbar">
+                    <select class="ep-range-select" id="epRangeSelect" title="Jump to episode range"></select>
+                    <div class="ep-filter">
+                        <i class="fas fa-search"></i>
+                        <input id="epFilterInput" type="text" placeholder="Filter episodes..." autocomplete="off">
+                    </div>
+                    <button class="ep-tool-btn" id="epSpoilerBtn" title="Toggle Spoilers"><i class="fas fa-eye-slash"></i></button>
+                    <button class="ep-tool-btn" id="epLayoutBtn" title="Toggle layout"><i class="fas fa-th-large"></i></button>
+                </div>
+                <div class="episode-grid" id="episodeGrid">
+                    <div class="loading-text" style="grid-column:1/-1;padding:20px 0;text-align:center;">
+                        <i class="fas fa-spinner fa-spin"></i> Loading episodes...
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-5">
+                <div class="logos">
+                    <div class="logo">
+                        <img src='logo.png' alt='AnimeKai'/>
+                    </div>
+                </div>
+                <div class="copyright">&copy; <span id="year">2026</span> AnimeKai &middot; Made by <strong>King A</strong> <span class="version-badge">v0.1.0</span></div>
+                <div class="disclaimer">This site does not store any files on its server. All contents are provided by non-affiliated third parties.</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script>
+// ============ PROXY CONFIG ============
+const PROXY_BASE = '/proxy?url=';
+const VIDEO_PROXY_BASE = '/proxy-video?url=';
+
+function getProxyUrl(url) {
+    return PROXY_BASE + encodeURIComponent(url);
+}
+function getVideoProxyUrl(url) {
+    return VIDEO_PROXY_BASE + encodeURIComponent(url);
+}
+
+// ============ STATE ============
+const state = {
+    slug: '',
+    title: '',
+    poster: '',
+    episodes: [],
+    servers: [],
+    currentEp: null,
+    currentSv: null,
+    loading: false,
+    epSource: 'anikaitv',
+    anilistId: null,
+    miruroServers: [],
+    currentMiruro: null,
+    currentMegap: null,
+    currentEmbed: null,
+    embeds: [],
+    aniskip: null,
+    lastSource: null,       // { type: 'megap'|'miruro'|'embed'|'anikaitv', ... } for auto-next resume
+    epView: localStorage.getItem('ak_epView') || 'grid',
+    epRanges: [],
+    epRange: 0,
+};
+
+// ============ SETTINGS (persisted) ============
+const settings = {
+    autoPlay: localStorage.getItem('ak_autoPlay') !== '0',
+    autoNext: localStorage.getItem('ak_autoNext') !== '0',
+    autoSkip: localStorage.getItem('ak_autoSkip') === '1',
+    skipTime: parseInt(localStorage.getItem('ak_skipTime') || '60', 10) || 60,
+};
+function saveSettings() {
+    localStorage.setItem('ak_autoPlay', settings.autoPlay ? '1' : '0');
+    localStorage.setItem('ak_autoNext', settings.autoNext ? '1' : '0');
+    localStorage.setItem('ak_autoSkip', settings.autoSkip ? '1' : '0');
+    localStorage.setItem('ak_skipTime', String(settings.skipTime));
+}
+function pushPlayerSettings() {
+    const win = playerFrame.contentWindow;
+    if (!win) return;
+    win.postMessage({ type: 'player-settings', autoSkip: settings.autoSkip, step: settings.skipTime, autoplay: settings.autoPlay }, '*');
+}
+
+// ============ CONTINUE WATCHING (localStorage) ============
+// Rich store (home cards): { slug: { slug, title, poster, ep, epNum, ts, anilistId, watched: [] } }
+// Legacy store (home progress %): user.playing = { slug: [ep, currentSeconds, durationSeconds] }
+const CONT_KEY = 'animekai:continue';
+
+function contSlug() {
+    return state.slug || (state.anilistId ? 'anilist-' + state.anilistId : ('anon-' + (state.title || 'anime').toLowerCase().replace(/\W+/g, '-').slice(0, 40)));
+}
+function loadContStore() {
+    try { return JSON.parse(localStorage.getItem(CONT_KEY)) || {}; } catch (e) { return {}; }
+}
+function loadPlayingStore() {
+    try { return JSON.parse(localStorage.getItem('user.playing')) || {}; } catch (e) { return {}; }
+}
+function saveContinue(extra) {
+    if (!state.currentEp) return;
+    const store = loadContStore();
+    const key = contSlug();
+    const entry = store[key] || {};
+    store[key] = Object.assign({
+        slug: state.slug || '',
+        title: state.title || pageTitle.textContent || state.slug,
+        poster: state.poster || '',
+        ep: state.currentEp,
+        epNum: parseInt(state.currentEp, 10) || 0,
+        ts: Date.now(),
+        anilistId: state.anilistId || null,
+        watched: entry.watched || [],
+    }, extra || {});
+    localStorage.setItem(CONT_KEY, JSON.stringify(store));
+    try { window.dispatchEvent(new CustomEvent('animekai:continue-updated')); } catch (e) {}
+}
+function markWatched(epNum) {
+    if (!epNum) return;
+    const store = loadContStore();
+    const key = contSlug();
+    const entry = store[key] || {};
+    const watched = entry.watched || [];
+    if (watched.indexOf(String(epNum)) === -1) {
+        watched.push(String(epNum));
+        entry.watched = watched;
+        store[key] = Object.assign({}, entry, { title: state.title || entry.title, poster: state.poster || entry.poster, ts: Date.now() });
+        localStorage.setItem(CONT_KEY, JSON.stringify(store));
+        renderEpisodes(state.episodes);
+    }
+}
+function watchedList() {
+    const key = contSlug();
+    return (loadContStore()[key] || {}).watched || [];
+}
+function savePlaying(current, duration) {
+    if (!state.currentEp) return;
+    const store = loadPlayingStore();
+    store[contSlug()] = [state.currentEp, Math.round(current || 0), Math.round(duration || 0)];
+    localStorage.setItem('user.playing', JSON.stringify(store));
+}
+function getResumeTime() {
+    const entry = loadPlayingStore()[contSlug()];
+    if (!entry) return 0;
+    const [ep, current, duration] = entry;
+    if (String(ep) !== String(state.currentEp)) return 0;
+    const d = Number(duration) || 0;
+    const c = Number(current) || 0;
+    if (c < 20 || (d > 0 && c > d - 10)) return 0;
+    return Math.floor(c);
+}
+function applyTheaterFromStore() {
+    let theater = false;
+    try { theater = localStorage.getItem('ak_theater') === '1'; } catch (e) {}
+    setTheaterMode(theater);
+}
+function setTheaterMode(on) {
+    if (watchWrapper) watchWrapper.setAttribute('data-theater-mode', on ? 'true' : 'false');
+    const btn = document.getElementById('ctrlLayout');
+    if (btn) btn.classList.toggle('on', !!on);
+}
+function toggleLayout() {
+    const on = watchWrapper ? watchWrapper.getAttribute('data-theater-mode') !== 'true' : false;
+    setTheaterMode(on);
+    try { localStorage.setItem('ak_theater', on ? '1' : '0'); } catch (e) {}
+}
+
+// ============ DOM REFS ============
+const playerFrame = document.getElementById('playerFrame');
+const playerWrapper = document.getElementById('player-wrapper');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const episodeGrid = document.getElementById('episodeGrid');
+const epRangeSelect = document.getElementById('epRangeSelect');
+const epFilterInput = document.getElementById('epFilterInput');
+const epSpoilerBtn = document.getElementById('epSpoilerBtn');
+const epLayoutBtn = document.getElementById('epLayoutBtn');
+const epCountEl = document.getElementById('epCount');
+const nextEpBanner = document.getElementById('nextEpBanner');
+const nextEpBannerText = document.getElementById('nextEpBannerText');
+const serverList = document.getElementById('serverList');
+const svCountEl = document.getElementById('svCount');
+const pageTitle = document.getElementById('pageTitle');
+const slugInfo = document.getElementById('slugInfo');
+const epMeta = document.getElementById('epMeta');
+const currentEpName = document.getElementById('currentEpName');
+const currentEpType = document.getElementById('currentEpType');
+const prevEpBtn = document.getElementById('prevEpBtn');
+const nextEpBtn = document.getElementById('nextEpBtn');
+const posterImg = document.getElementById('posterImg');
+const infoTitle = document.getElementById('infoTitle');
+const infoScore = document.getElementById('infoScore');
+const infoAiring = document.getElementById('infoAiring');
+const infoMeta = document.getElementById('infoMeta');
+const infoGenres = document.getElementById('infoGenres');
+const infoSynopsis = document.getElementById('infoSynopsis');
+const watchWrapper = document.getElementById('watchWrapper');
+
+// ============ EPISODE VIEW / FILTER / SPOILER ============
+const EP_VIEW_ORDER = ['grid', 'list', 'image'];
+const EP_VIEW_ICONS = { grid: 'fa-th-large', list: 'fa-list-ul', image: 'fa-images' };
+function syncEpLayoutBtn() {
+    if (!epLayoutBtn) return;
+    epLayoutBtn.innerHTML = `<i class="fas ${EP_VIEW_ICONS[state.epView] || 'fa-th-large'}"></i>`;
+    epLayoutBtn.classList.toggle('active', state.epView !== 'grid');
+}
+function setEpView(view) {
+    if (!EP_VIEW_ORDER.includes(view)) view = 'grid';
+    state.epView = view;
+    localStorage.setItem('ak_epView', view);
+    syncEpLayoutBtn();
+    renderEpisodes(state.episodes);
+}
+if (epLayoutBtn) epLayoutBtn.addEventListener('click', () => {
+    const next = EP_VIEW_ORDER[(EP_VIEW_ORDER.indexOf(state.epView) + 1) % EP_VIEW_ORDER.length];
+    setEpView(next);
+});
+syncEpLayoutBtn();
+
+let epSpoilers = localStorage.getItem('ak_epSpoilers') === '1';
+if (epSpoilerBtn) {
+    epSpoilerBtn.classList.toggle('active', epSpoilers);
+    epSpoilerBtn.innerHTML = `<i class="fas ${epSpoilers ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
+    epSpoilerBtn.addEventListener('click', () => {
+        epSpoilers = !epSpoilers;
+        localStorage.setItem('ak_epSpoilers', epSpoilers ? '1' : '0');
+        epSpoilerBtn.classList.toggle('active', epSpoilers);
+        epSpoilerBtn.innerHTML = `<i class="fas ${epSpoilers ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
+        episodeGrid.classList.toggle('spoilers', epSpoilers);
+    });
+}
+
+let epFilter = '';
+if (epFilterInput) {
+    epFilterInput.addEventListener('input', () => {
+        epFilter = epFilterInput.value.trim().toLowerCase();
+        renderEpisodes(state.episodes);
+    });
+}
+if (epRangeSelect) epRangeSelect.addEventListener('change', () => setEpRange(parseInt(epRangeSelect.value, 10)));
+
+// ============ INIT ============
+const params = new URLSearchParams(window.location.search);
+state.slug = params.get('slug') || '';
+const anilistIdParam = params.get('anilistId');
+applyTheaterFromStore();
+
+// Bind setting toggles
+const autoPlayChk = document.getElementById('autoPlayChk');
+const autoNextChk = document.getElementById('autoNextChk');
+const autoSkipChk = document.getElementById('autoSkipChk');
+autoPlayChk.checked = settings.autoPlay;
+autoNextChk.checked = settings.autoNext;
+autoSkipChk.checked = settings.autoSkip;
+autoPlayChk.addEventListener('change', () => { settings.autoPlay = autoPlayChk.checked; saveSettings(); pushPlayerSettings(); });
+autoNextChk.addEventListener('change', () => { settings.autoNext = autoNextChk.checked; saveSettings(); });
+autoSkipChk.addEventListener('change', () => { settings.autoSkip = autoSkipChk.checked; saveSettings(); pushPlayerSettings(); });
+
+// Skip-time dropdown
+const skipTimeBtn = document.getElementById('skipTimeBtn');
+const skipTimeMenu = document.getElementById('skipTimeMenu');
+skipTimeMenu.innerHTML = [60, 90, 120, 150].map(s =>
+    `<div class="dropdown-item ${settings.skipTime === s ? 'active' : ''}" data-sec="${s}">${s}s</div>`
+).join('');
+skipTimeMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+    settings.skipTime = parseInt(item.dataset.sec, 10);
+    saveSettings();
+    skipTimeMenu.querySelectorAll('.dropdown-item').forEach(i => i.classList.toggle('active', i === item));
+    skipTimeMenu.classList.remove('open');
+    skipTimeBtn.innerHTML = `<i class="fas fa-forward"></i> Skip ${settings.skipTime}s`;
+    pushPlayerSettings();
+});
+skipTimeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    skipTimeMenu.classList.toggle('open');
+});
+document.addEventListener('click', () => skipTimeMenu.classList.remove('open'));
+
+if (anilistIdParam) {
+    state.anilistId = anilistIdParam;
+    state.slug = '';
+    pageTitle.textContent = 'Loading anime...';
+    (async () => {
+        try {
+            const resp = await fetch(`/api/anilist/info?anilistId=${encodeURIComponent(anilistIdParam)}`);
+            const data = await resp.json();
+            if (data.resolved) {
+                applyInfo(data.resolved);
+                if (data.resolved.title) {
+                    document.title = data.resolved.title + ' - AnimeKai';
+                    pageTitle.textContent = data.resolved.title;
+                }
+            }
+        } catch (e) {
+            console.error('anilist info failed:', e);
+        }
+        await loadMiruroEpisodes('direct anilistId');
+    })();
+} else if (!state.slug) {
+    pageTitle.textContent = 'No anime specified';
+    episodeGrid.innerHTML = '<div class="error-msg" style="grid-column:1/-1"><i class="fas fa-exclamation-triangle"></i><p>No anime slug provided. Use <code>?slug=anime-slug-here</code> or <code>?anilistId=12345</code></p></div>';
+} else {
+    pageTitle.textContent = 'Loading: ' + state.slug;
+    slugInfo.textContent = 'Slug: ' + state.slug;
+    loadEpisodes();
+}
+
+// ============ CORS-FRIENDLY FETCH ============
+async function fetchWithProxy(url) {
+    let proxyUrl = url;
+    if (url.startsWith('https://anikaitv.to/')) {
+        proxyUrl = url.replace('https://anikaitv.to', '');
+    } else if (url.startsWith('http://') || url.startsWith('https://')) {
+        proxyUrl = getProxyUrl(url);
+    }
+    const resp = await fetch(proxyUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'Accept': 'text/html,application/json,*/*' }
+    });
+    if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`Request failed (${resp.status}): ${text.slice(0, 120)}`);
+    }
+    return await resp.text();
+}
+
+function extractHtmlFromResponse(text) {
+    try {
+        const data = JSON.parse(text);
+        if (data && data.result) return data.result;
+        return text;
+    } catch (e) {
+        return text;
+    }
+}
+
+// ============ LOAD EPISODES ============
+async function loadEpisodes() {
+    const url = `/ajax/episode/list/${state.slug}`;
+    episodeGrid.innerHTML = '<div class="loading-text" style="grid-column:1/-1;text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading episodes...</div>';
+
+    try {
+        const rawText = await fetchWithProxy(url);
+        const html = extractHtmlFromResponse(rawText);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const links = doc.querySelectorAll('a[data-slug]');
+        const episodes = [];
+        links.forEach(link => {
+            const slug = link.getAttribute('data-slug') || '';
+            const num = link.getAttribute('data-num') || '';
+            const ids = link.getAttribute('data-ids') || '';
+            const href = link.getAttribute('href') || '';
+            episodes.push({ slug, num, ids, href, title: link.textContent.trim() });
+        });
+
+        const epRanges = doc.querySelectorAll('.ep-range');
+        epRanges.forEach(range => {
+            range.querySelectorAll('a').forEach(link => {
+                const slug = link.getAttribute('data-slug') || '';
+                const num = link.getAttribute('data-num') || '';
+                const ids = link.getAttribute('data-ids') || '';
+                const href = link.getAttribute('href') || '';
+                if (slug && !episodes.find(e => e.slug === slug || e.num === num)) {
+                    episodes.push({ slug, num, ids, href, title: num });
+                }
+            });
+        });
+
+        if (episodes.length === 0) {
+            doc.querySelectorAll('a[data-num]').forEach(link => {
+                const num = link.getAttribute('data-num');
+                const ids = link.getAttribute('data-ids') || link.getAttribute('data-id') || '';
+                if (num && !episodes.find(e => e.num === num)) {
+                    episodes.push({ slug: '', num, ids, href: link.getAttribute('href') || '', title: num });
+                }
+            });
+        }
+
+        if (episodes.length === 0) throw new Error('anikaitv returned no episodes');
+
+        state.episodes = episodes;
+        state.epSource = 'anikaitv';
+        renderEpisodes(episodes);
+
+        try {
+            const jsonData = JSON.parse(rawText);
+            if (jsonData.status === 200 && jsonData.result) {
+                const titleEl = doc.querySelector('.title, h1, .name') || doc.querySelector('[class*="title"]');
+                if (titleEl) {
+                    pageTitle.textContent = titleEl.textContent.trim().substring(0, 60);
+                } else {
+                    pageTitle.textContent = state.slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                }
+            }
+        } catch (jsonErr) {
+            pageTitle.textContent = state.slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        // Resume a specific episode passed via ?ep= (e.g. from Continue Watching)
+        const requestedEp = params.get('ep');
+        const initialEp = requestedEp
+            ? (episodes.find(e => e.num === requestedEp) || episodes[episodes.length - 1])
+            : (episodes[episodes.length - 1] || episodes[0]);
+        if (initialEp) selectEpisode(initialEp.num);
+    } catch (e) {
+        console.error('Failed to load episodes from anikaitv:', e);
+        await loadMiruroEpisodes(e.message);
+    }
+}
+
+async function loadMiruroEpisodes(anikaitvError) {
+    episodeGrid.innerHTML = '<div class="loading-text" style="grid-column:1/-1;text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> anikaitv unavailable — loading miruro episodes...</div>';
+
+    try {
+        await resolveAnilist();
+        const epResp = await fetch(`/api/miruro/episodes?anilistId=${state.anilistId}`);
+        const epData = await epResp.json();
+        const list = epData.episodes || [];
+        if (list.length === 0) throw new Error(epData.error || 'No miruro episodes found');
+
+        state.episodes = list.map(ep => ({ num: String(ep.number), title: ep.title || '', miruro: true }));
+        state.epSource = 'miruro';
+        renderEpisodes(state.episodes);
+
+        const slugEpMatch = (state.slug || '').match(/\/ep-(\d+)/);
+        const requested = slugEpMatch ? slugEpMatch[1] : (params.get('ep') || state.currentEp || String(list[list.length - 1].number));
+        const target = state.episodes.find(e => e.num === requested) || state.episodes[state.episodes.length - 1];
+        selectEpisode(target.num);
+    } catch (e) {
+        console.error('Miruro fallback failed:', e);
+        episodeGrid.innerHTML = `
+            <div class="error-msg" style="grid-column:1/-1">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Both sources are unavailable right now.</p>
+                <p style="font-size:0.8rem;color:#4a5270;">${e.message.substring(0, 100)}</p>
+                <button class="retry-btn" onclick="loadEpisodes()"><i class="fas fa-redo"></i> Retry</button>
+            </div>
+        `;
+    }
+}
+
+// ============ ANILIST RESOLVE + INFO ============
+async function resolveAnilist() {
+    if (state.anilistId) return true;
+    const baseSlug = (state.slug || '').replace(/\/ep-?\d*$/, '');
+    const resp = await fetch(`/api/miruro/resolve?slug=${encodeURIComponent(baseSlug)}`);
+    const data = await resp.json();
+    if (!data.resolved) return false;
+    state.anilistId = data.resolved.anilistId;
+    applyInfo(data.resolved);
+    return true;
+}
+
+function applyInfo(resolved) {
+    if (!resolved) return;
+    if (resolved.title && !state.title) {
+        state.title = resolved.title;
+        document.title = resolved.title + ' - AnimeKai';
+        pageTitle.textContent = resolved.title;
+    }
+    const info = resolved.info;
+    if (!info) return;
+    state.poster = info.bannerImage || info.coverImage?.extraLarge || info.coverImage?.large || '';
+    posterImg.src = info.coverImage?.extraLarge || info.coverImage?.large || '';
+    infoTitle.textContent = info.title?.english || info.title?.romaji || resolved.title || '—';
+    if (info.averageScore) infoScore.textContent = '★ ' + info.averageScore;
+    const parts = [];
+    if (info.format) parts.push(info.format);
+    if (info.episodes) parts.push(info.episodes + ' EPS');
+    if (info.duration) parts.push(info.duration + ' MIN');
+    if (info.seasonYear) parts.push(info.seasonYear);
+    if (info.status) parts.push(info.status);
+    infoMeta.innerHTML = parts.map(p => `<span class="badge">${p}</span>`).join('');
+    infoGenres.innerHTML = (info.genres || []).slice(0, 5).map(g => `<span class="genre">${g}</span>`).join('');
+
+    const next = info.nextAiringEpisode;
+    if (next && next.episode && next.airingAt) {
+        const when = new Date(next.airingAt * 1000);
+        const dateStr = when.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        const airMsg = `Next episode EP ${next.episode} · ${dateStr}`;
+        if (infoAiring) {
+            infoAiring.style.display = 'flex';
+            infoAiring.innerHTML = `<i class="fas fa-broadcast-tower"></i>${airMsg}`;
+        }
+        if (nextEpBanner) {
+            nextEpBanner.style.display = 'flex';
+            nextEpBannerText.textContent = `Episode ${next.episode} of ${info.title?.english || info.title?.romaji || 'this anime'} releases`;
+            const at = document.createElement('span');
+            at.className = 'air-at';
+            at.textContent = dateStr;
+            nextEpBanner.appendChild(at);
+        }
+    } else {
+        if (infoAiring) infoAiring.style.display = 'none';
+        if (nextEpBanner) nextEpBanner.style.display = 'none';
+    }
+
+    const desc = (info.description || '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    infoSynopsis.textContent = desc || 'No synopsis available.';
+    if (state.currentEp) saveContinue();
+}
+
+// ============ ANISKIP ============
+function pickAniskip(entries, type) {
+    if (!Array.isArray(entries)) return null;
+    return entries
+        .filter(e => e && (e.type === type || e.type === ('mixed-' + type)) && e.start >= 0 && e.end > e.start && (e.end - e.start) > 10)
+        .sort((a, b) => (b.votes || 0) - (a.votes || 0))[0] || null;
+}
+
+// ============ RENDER EPISODES ============
+const EP_RANGE_SIZE = 100;
+function computeRanges(episodes) {
+    state.epRanges = [];
+    for (let i = 0; i < episodes.length; i += EP_RANGE_SIZE) {
+        const slice = episodes.slice(i, i + EP_RANGE_SIZE);
+        state.epRanges.push({
+            start: i,
+            end: i + slice.length,
+            label: slice.length === 1 ? String(slice[0].num) : `${slice[0].num} - ${slice[slice.length - 1].num}`,
+        });
+    }
+    if (state.epRange == null || state.epRange >= state.epRanges.length) {
+        const cur = state.currentEp ? episodes.findIndex(e => e.num === state.currentEp) : -1;
+        state.epRange = cur >= 0 ? Math.floor(cur / EP_RANGE_SIZE) : 0;
+    }
+}
+function renderRangeSelect() {
+    if (state.epRanges.length <= 1) { epRangeSelect.innerHTML = ''; epRangeSelect.style.display = 'none'; return; }
+    epRangeSelect.style.display = '';
+    epRangeSelect.innerHTML = state.epRanges.map((r, i) =>
+        `<option value="${i}">${r.label}</option>`
+    ).join('');
+    epRangeSelect.value = String(state.epRange);
+}
+function setEpRange(i) {
+    if (state.epRanges[i]) state.epRange = i;
+    renderRangeSelect();
+    renderEpisodes(state.episodes);
+}
+function escStr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function renderEpisodes(episodes) {
+    if (epCountEl) epCountEl.textContent = episodes.length + ' eps';
+    if (episodes.length === 0) {
+        episodeGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#5a6280;">No episodes found</div>';
+        if (epRangeSelect) { epRangeSelect.innerHTML = ''; epRangeSelect.style.display = 'none'; }
+        return;
+    }
+    episodes.sort((a, b) => parseInt(a.num) - parseInt(b.num));
+    computeRanges(episodes);
+    renderRangeSelect();
+
+    let list = episodes;
+    if (epFilter) {
+        list = episodes.filter(ep => String(ep.num).includes(epFilter) || (ep.title || '').toLowerCase().includes(epFilter));
+    } else {
+        const range = state.epRanges[state.epRange] || state.epRanges[0];
+        list = range ? episodes.slice(range.start, range.end) : episodes;
+    }
+    const view = state.epView;
+    episodeGrid.className = 'episode-grid ' + view + (epSpoilers ? ' spoilers' : '');
+    const watched = watchedList();
+
+    if (view === 'list') {
+        episodeGrid.innerHTML = list.map(ep => `
+            <div class="ep-grid-item list-row ${state.currentEp === ep.num ? 'active' : ''}${watched.indexOf(String(ep.num)) >= 0 ? ' watched' : ''}"
+                 data-num="${ep.num}" onclick="selectEpisode('${ep.num}')">
+                <span class="ep-num">EP ${ep.num}</span>
+                <span class="ep-row-title">${escStr(ep.title || ('Episode ' + ep.num))}</span>
+            </div>
+        `).join('');
+    } else if (view === 'image') {
+        const thumb = state.poster || '';
+        episodeGrid.innerHTML = list.map(ep => `
+            <div class="ep-grid-item image-card ${state.currentEp === ep.num ? 'active' : ''}${watched.indexOf(String(ep.num)) >= 0 ? ' watched' : ''}"
+                 data-num="${ep.num}"${thumb ? ` style="background-image:url('${escStr(thumb)}')"` : ''}
+                 onclick="selectEpisode('${ep.num}')">
+                <span class="ep-num">${ep.num}</span>
+                <span class="ep-title">${escStr(ep.title || ('Episode ' + ep.num))}</span>
+            </div>
+        `).join('');
+    } else {
+        episodeGrid.innerHTML = list.map(ep => `
+            <div class="ep-btn ${state.currentEp === ep.num ? 'active' : ''}${watched.indexOf(String(ep.num)) >= 0 ? ' watched' : ''}"
+                 data-num="${ep.num}" onclick="selectEpisode('${ep.num}')">
+                ${ep.num}
+            </div>
+        `).join('');
+    }
+}
+
+function updateEpNav() {
+    const idx = state.episodes.findIndex(e => e.num === state.currentEp);
+    prevEpBtn.disabled = idx <= 0;
+    nextEpBtn.disabled = idx < 0 || idx >= state.episodes.length - 1;
+}
+
+function changeEpisode(dir) {
+    const idx = state.episodes.findIndex(e => e.num === state.currentEp);
+    const target = state.episodes[idx + dir];
+    if (target) selectEpisode(target.num, { resume: true });
+}
+
+// ============ SELECT EPISODE ============
+async function selectEpisode(numStr, opts = {}) {
+    const ep = state.episodes.find(e => e.num === numStr);
+    if (!ep) return;
+
+    state.currentEp = ep.num;
+    state.currentSv = null;
+    state.currentMiruro = null;
+    state.currentMegap = null;
+    state.currentEmbed = null;
+    state.embeds = [];
+    state.aniskip = null;
+
+    document.querySelectorAll('.ep-btn, .ep-grid-item').forEach(btn => btn.classList.toggle('active', btn.dataset.num === numStr));
+
+    epMeta.innerHTML = `<span><i class="fas fa-film"></i> Episode ${ep.num}</span>`;
+    currentEpName.textContent = `Episode ${ep.num}`;
+    currentEpType.textContent = '';
+    updateEpNav();
+    saveContinue();
+    renderEpisodes(state.episodes);
+
+    serverList.innerHTML = '<div class="loading-text"><i class="fas fa-spinner fa-spin"></i> Loading servers...</div>';
+    document.getElementById('miruroList').innerHTML = '';
+    document.getElementById('megapList').innerHTML = '';
+    document.getElementById('embedList').innerHTML = '';
+
+    // Load aniskip data for this episode (miruro mappings) — used by skip buttons
+    loadAniskip(ep.num).catch(() => {});
+    void opts;
+
+    if (ep.miruro) {
+        serverList.innerHTML = '<div class="loading-text">anikaitv servers unavailable — using miruro</div>';
+        await loadMiruroOptions(ep, !opts.resume);
+        renderMegapOptions();
+        loadEmbedOptions(ep);
+        if (opts.resume) resumeSource();
+        return;
+    }
+
+    await loadServers(ep);
+    loadMiruroOptions(ep);
+    renderMegapOptions();
+    loadEmbedOptions(ep);
+    if (opts.resume) resumeSource();
+}
+
+async function loadAniskip(epNum) {
+    if (!state.anilistId) {
+        const ok = await resolveAnilist();
+        if (!ok) return;
+    }
+    const resp = await fetch(`/api/miruro/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(epNum)}`);
+    const data = await resp.json();
+    const entries = data.mappings?.aniskip || null;
+    if (entries) {
+        state.aniskip = {
+            op: pickAniskip(entries, 'op'),
+            ed: pickAniskip(entries, 'ed'),
+        };
+    }
+}
+
+// ============ LOAD SERVERS (anikaitv) ============
+async function loadServers(ep) {
+    let ids = ep.ids;
+    if (!ids) {
+        serverList.innerHTML = '<div class="loading-text">No server data available for this episode</div>';
+        return;
+    }
+    const url = `/ajax/server/list?servers=${ids}`;
+
+    try {
+        const rawText = await fetchWithProxy(url);
+        const html = extractHtmlFromResponse(rawText);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const servers = [];
+        const serverLinks = doc.querySelectorAll('li[data-sv-id], a[data-sv-id], .server-item, [data-link-id]');
+
+        if (serverLinks.length > 0) {
+            serverLinks.forEach(el => {
+                const svId = el.getAttribute('data-sv-id') || el.getAttribute('data-link-id') || '';
+                const linkId = el.getAttribute('data-link-id') || svId;
+                const name = el.textContent.trim() || 'Server';
+                const type = el.closest('[data-type]')?.getAttribute('data-type') || 'sub';
+                if (linkId) servers.push({ linkId, name, type });
+            });
+        } else {
+            const typeGroups = doc.querySelectorAll('[data-type]');
+            typeGroups.forEach(group => {
+                const type = group.getAttribute('data-type');
+                group.querySelectorAll('li, a').forEach(item => {
+                    const linkId = item.getAttribute('data-sv-id') || item.getAttribute('data-link-id') || '';
+                    const name = item.textContent.trim() || 'Unknown';
+                    if (linkId) servers.push({ linkId, name, type });
+                });
+            });
+        }
+
+        if (servers.length === 0) {
+            doc.querySelectorAll('[data-link-id]').forEach(el => {
+                const linkId = el.getAttribute('data-link-id');
+                const name = el.textContent.trim() || el.getAttribute('data-name') || 'Server';
+                if (linkId && !servers.find(s => s.linkId === linkId)) {
+                    servers.push({ linkId, name, type: 'sub' });
+                }
+            });
+        }
+
+        state.servers = servers;
+        renderServers(servers);
+
+        if (servers.length > 0) {
+            selectServer(servers[0].linkId);
+        } else {
+            serverList.innerHTML = '<div class="loading-text">No servers available</div>';
+        }
+    } catch (e) {
+        console.error('Failed to load servers:', e);
+        serverList.innerHTML = `
+            <div class="error-msg">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Could not load servers. Retrying...</p>
+                <button class="retry-btn" onclick="loadServers(state.episodes.find(e => e.num === state.currentEp))">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+function updateSvCount() {
+    if (svCountEl) {
+        const n = document.querySelectorAll('#serverPanel .sv-btn').length;
+        svCountEl.textContent = n ? n + (n === 1 ? ' server' : ' servers') : '—';
+    }
+}
+function renderServers(servers) {
+    const grouped = {};
+    servers.forEach(sv => {
+        if (!grouped[sv.type]) grouped[sv.type] = [];
+        grouped[sv.type].push(sv);
+    });
+    let html = '';
+    for (const [type, svs] of Object.entries(grouped)) {
+        html += `<div class="server-section">
+            <div class="server-type-label">${type.toUpperCase()}</div>
+            <div class="server-list">
+                ${svs.map(sv => `
+                    <div class="sv-btn ${sv.type} ${state.currentSv === sv.linkId ? 'active' : ''}"
+                         onclick="selectServer('${sv.linkId}')" data-link-id="${sv.linkId}">
+                        ${sv.name}
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+    serverList.innerHTML = html || '<div class="loading-text">No servers found</div>';
+    updateSvCount();
+}
+
+async function selectServer(linkId) {
+    state.currentSv = linkId;
+    state.lastSource = { type: 'anikaitv' };
+    state.currentMiruro = null;
+    state.currentMegap = null;
+    state.currentEmbed = null;
+
+    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.toggle('active', btn.dataset.linkId === linkId));
+    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
+
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading video stream...';
+
+    const url = `/ajax/server?get=${linkId}`;
+    try {
+        const jsonText = await fetchWithProxy(url);
+        let data;
+        try {
+            data = JSON.parse(jsonText);
+        } catch (parseErr) {
+            console.error('Failed to parse server response:', parseErr);
+            showError('Invalid server response');
+            return;
+        }
+
+        if (data.status === 200 && data.result && data.result.url) {
+            const videoUrl = data.result.url;
+            const isEmbed = videoUrl.includes('embed') ||
+                videoUrl.includes('player.php') ||
+                videoUrl.includes('player.html') ||
+                videoUrl.includes('megacloud') ||
+                videoUrl.includes('gogoanime') ||
+                videoUrl.includes('east') ||
+                videoUrl.includes('west') ||
+                videoUrl.includes('server') ||
+                /\/[a-z]+\/[a-zA-Z0-9]+/.test(videoUrl.split('?')[0]);
+
+            if (isEmbed) {
+                playerFrame.src = getVideoProxyUrl(videoUrl);
+                loadingOverlay.style.display = 'none';
+            } else {
+                const proxiedUrl = getVideoProxyUrl(videoUrl);
+                playerFrame.src = buildPlayerUrl(proxiedUrl, { title: pageTitle.textContent });
+                loadingOverlay.style.display = 'none';
+            }
+        } else {
+            const msg = data.message || 'Server returned no video URL';
+            showError(msg);
+        }
+    } catch (e) {
+        console.error('Failed to get server URL:', e);
+        showError(e.message);
+    }
+}
+
+// ============ PLAYER URL BUILDER ============
+function buildPlayerUrl(mediaUrl, opts = {}) {
+    const q = new URLSearchParams();
+    q.set('url', mediaUrl);
+    if (opts.title) q.set('title', opts.title);
+    if (state.poster) q.set('poster', state.poster);
+    q.set('autoplay', settings.autoPlay ? '1' : '0');
+    q.set('step', String(settings.skipTime));
+    q.set('autoSkip', settings.autoSkip ? '1' : '0');
+    if (opts.skipIntro) q.set('skipIntro', `${opts.skipIntro.start}-${opts.skipIntro.end}`);
+    if (opts.skipOutro) q.set('skipOutro', `${opts.skipOutro.start}-${opts.skipOutro.end}`);
+    if (opts.subs) q.set('subs', JSON.stringify(opts.subs));
+    const resumeT = getResumeTime();
+    if (resumeT > 0) q.set('t', String(resumeT));
+    return 'player.html?' + q.toString();
+}
+
+function skipParams() {
+    const s = state.aniskip || {};
+    return {
+        skipIntro: s.op ? { start: s.op.start, end: s.op.end } : null,
+        skipOutro: s.ed ? { start: s.ed.start, end: s.ed.end } : null,
+    };
+}
+
+// ============ MIRURO SERVERS ============
+async function loadMiruroOptions(ep, autoplay) {
+    const miruroList = document.getElementById('miruroList');
+    miruroList.innerHTML = `
+        <div class="server-section">
+            <div class="server-type-label">MIRURO</div>
+            <div class="server-list">
+                <div class="sv-btn" style="opacity:.7;pointer-events:none;font-size:.75rem;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading miruro sources...
+                </div>
+            </div>
+        </div>`;
+
+    try {
+        await resolveAnilist();
+        const serversResp = await fetch(`/api/miruro/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(ep.num)}`);
+        const serversData = await serversResp.json();
+        if (!serversData.servers || serversData.servers.length === 0) {
+            miruroList.innerHTML = '';
+            return;
+        }
+
+        state.miruroServers = serversData.servers;
+        state.miruroServers.sort((a, b) => (a.provider === 'bonk' ? 0 : 1) - (b.provider === 'bonk' ? 0 : 1));
+        renderMiruroServers();
+
+        if (!state.aniskip && serversData.mappings?.aniskip) {
+            state.aniskip = {
+                op: pickAniskip(serversData.mappings.aniskip, 'op'),
+                ed: pickAniskip(serversData.mappings.aniskip, 'ed'),
+            };
+        }
+
+        if (autoplay && state.miruroServers.length > 0 && !state.currentMiruro) {
+            const first = state.miruroServers[0];
+            await selectMiruroServer(first.provider, first.category);
+        }
+    } catch (e) {
+        console.warn('Miruro unavailable:', e.message);
+        miruroList.innerHTML = '';
+    }
+}
+
+function renderMiruroServers() {
+    const miruroList = document.getElementById('miruroList');
+    const svs = state.miruroServers;
+    miruroList.innerHTML = `
+        <div class="server-section">
+            <div class="server-type-label">MIRURO · ${svs.length} ${svs.length === 1 ? 'source' : 'sources'}</div>
+            <div class="server-list">
+                ${svs.map(sv => `
+                    <div class="sv-btn ${sv.category} ${state.currentMiruro === `${sv.provider}:${sv.category}` ? 'active' : ''}"
+                         data-miruro="${sv.provider}:${sv.category}"
+                         title="${(sv.title || sv.provider).replace(/"/g, '&quot;')}"
+                         onclick="selectMiruroServer('${sv.provider}', '${sv.category}')">
+                        ${sv.provider} · ${sv.category.toUpperCase()}
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    updateSvCount();
+}
+
+async function selectMiruroServer(provider, category) {
+    state.currentMiruro = provider + ':' + category;
+    state.lastSource = { type: 'miruro', provider, category };
+    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.toggle('active', btn.dataset.miruro === state.currentMiruro));
+    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
+
+    const sv = state.miruroServers.find(s => s.provider === provider && s.category === category);
+    if (sv && sv.title) currentEpName.textContent = `Episode ${state.currentEp} · ${sv.title}`;
+    if (category) currentEpType.textContent = category.toUpperCase();
+
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading miruro stream...';
+
+    try {
+        const resp = await fetch(`/api/miruro/stream?anilistId=${state.anilistId}&provider=${encodeURIComponent(provider)}&category=${encodeURIComponent(category)}&episode=${encodeURIComponent(state.currentEp)}`);
+        const data = await resp.json();
+
+        if (!data.m3u8Url) {
+            throw new Error(data.error || 'No HLS stream available for this source');
+        }
+
+        playerFrame.src = buildPlayerUrl(data.m3u8Url, {
+            title: pageTitle.textContent + ' — Miruro',
+            ...skipParams(),
+        });
+        loadingOverlay.style.display = 'none';
+    } catch (e) {
+        console.error('Miruro stream failed:', e);
+        const idx = state.miruroServers.findIndex(s => s.provider === provider && s.category === category);
+        const next = state.miruroServers[idx + 1];
+        if (next) {
+            selectMiruroServer(next.provider, next.category);
+        } else {
+            showError(e.message);
+        }
+    }
+}
+
+// ============ MEGAPLAY (megaplay.buzz) SERVERS ============
+async function renderMegapOptions() {
+    const megapList = document.getElementById('megapList');
+    if (!megapList) return;
+
+    try {
+        await resolveAnilist();
+    } catch (e) { /* anilistId stays null */ }
+
+    if (!state.anilistId) {
+        megapList.innerHTML = '';
+        return;
+    }
+
+    megapList.innerHTML = `
+        <div class="server-section">
+            <div class="server-type-label">MEGA PLAY</div>
+            <div class="server-list">
+                <div class="sv-btn sub ${state.currentMegap === 'sub' ? 'active' : ''}" data-megap="sub" onclick="selectMegapServer('sub')">Sub</div>
+                <div class="sv-btn dub ${state.currentMegap === 'dub' ? 'active' : ''}" data-megap="dub" onclick="selectMegapServer('dub')">Dub</div>
+            </div>
+        </div>`;
+    updateSvCount();
+}
+
+async function selectMegapServer(lang) {
+    state.currentMegap = lang;
+    state.lastSource = { type: 'megap', lang };
+    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.toggle('active', btn.dataset.megap === lang));
+    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
+
+    currentEpType.textContent = lang.toUpperCase();
+
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading MegaPlay stream...';
+
+    try {
+        await resolveAnilist();
+        const resp = await fetch(`/api/megap/stream?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}&lang=${lang}`);
+        const data = await resp.json();
+        if (!data.m3u8Url) throw new Error(data.error || 'MegaPlay returned no stream');
+
+        const playableUrl = getVideoProxyUrl(data.m3u8Url) + '&referer=' + encodeURIComponent(data.referer);
+        playerFrame.src = buildPlayerUrl(playableUrl, {
+            title: pageTitle.textContent + ' — MegaPlay',
+            skipIntro: data.intro && data.intro.end > data.intro.start ? { start: data.intro.start, end: data.intro.end } : null,
+            skipOutro: data.outro && data.outro.end > data.outro.start ? { start: data.outro.start, end: data.outro.end } : null,
+            subs: (data.tracks || []).filter(t => t.file).map(t => ({
+                label: t.label || t.lang || 'Subtitles',
+                lang: t.lang || 'en',
+                file: getVideoProxyUrl(t.file) + '&referer=' + encodeURIComponent(data.referer),
+                default: !!t.default,
+            })),
+        });
+        loadingOverlay.style.display = 'none';
+    } catch (e) {
+        console.error('MegaPlay stream failed:', e);
+        showError(e.message);
+    }
+}
+
+// ============ MIRURO EMBED SERVERS ============
+// Miruro's "embed" streams can't be turned into a miruro HLS URL directly, so
+// they are rendered as separate server buttons. kotocdn-family hosts
+// (vidtube.site, megaplay.buzz) are resolved to a real HLS stream server-side
+// and played through player.html; everything else is played in the iframe
+// directly. Hosts verified to work inside a plain <iframe> (animegg, vivibebe,
+// otakuhg, otakuvid, bibiemb) are listed first; known-broken hosts last.
+const GOOD_EMBED_HOSTS = ['animegg.org', 'vivibebe.site', 'otakuhg.site', 'otakuvid.online', 'bibiemb.xyz'];
+const BAD_EMBED_HOSTS = ['kwik.cx', 'anidb.app', 'playmogo.com'];
+const KOTOCDN_EMBED_HOSTS = ['vidtube.site', 'megaplay.buzz'];
+
+async function loadEmbedOptions(ep) {
+    const embedList = document.getElementById('embedList');
+    embedList.innerHTML = '';
+
+    try {
+        await resolveAnilist();
+    } catch (e) { return; }
+    if (!state.anilistId) return;
+
+    try {
+        const resp = await fetch(`/api/miruro/embeds?anilistId=${state.anilistId}&episode=${encodeURIComponent(ep.num)}`);
+        const data = await resp.json();
+        const embeds = data.embeds || [];
+        if (embeds.length === 0) return;
+
+        // Dedupe by host, keep the first category seen
+        const seenHosts = new Map();
+        embeds.forEach(emb => {
+            if (!emb.host) return;
+            if (!seenHosts.has(emb.host)) seenHosts.set(emb.host, emb);
+        });
+        const unique = [...seenHosts.values()];
+        unique.sort((a, b) => {
+            const tier = e => e.kind === 'hls' ? 0 : (GOOD_EMBED_HOSTS.indexOf(e.host) >= 0 ? 1 : (BAD_EMBED_HOSTS.indexOf(e.host) >= 0 ? 3 : 2));
+            return tier(a) - tier(b) || a.host.localeCompare(b.host);
+        });
+
+        state.embeds = unique;
+        embedList.innerHTML = `
+            <div class="server-section">
+                <div class="server-type-label">MIRURO EMBED · ${unique.length} ${unique.length === 1 ? 'server' : 'servers'}</div>
+                <div class="server-list">
+                    ${unique.map(emb => `
+                        <div class="sv-btn embed ${state.currentEmbed === emb.url ? 'active' : ''}"
+                             data-embed="${emb.url.replace(/"/g, '&quot;')}"
+                             title="${(emb.provider || '') + ' — ' + emb.url}"
+                             onclick="selectEmbedServer('${emb.url.replace(/'/g, "\\'")}')">
+                            ${emb.host}${emb.kind === 'hls' ? ' <span class="embed-badge">HLS</span>' : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+        updateSvCount();
+    } catch (e) {
+        console.warn('Embed options unavailable:', e.message);
+        embedList.innerHTML = '';
+    }
+}
+
+async function selectEmbedServer(url) {
+    const emb = state.embeds.find(e => e.url === url);
+    state.currentEmbed = url;
+    state.lastSource = emb ? { type: 'embed', host: emb.host } : { type: 'embed' };
+    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.toggle('active', btn.dataset.embed === url));
+    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
+
+    if (emb) currentEpType.textContent = (emb.category || 'embed').toUpperCase();
+
+    loadingOverlay.style.display = 'flex';
+
+    // kotocdn-family embeds resolve to a real HLS stream -> play via player.html
+    if (emb && emb.kind === 'hls') {
+        loadingOverlay.querySelector('span').textContent = 'Resolving ' + emb.host + ' stream...';
+        try {
+            const resp = await fetch('/api/embed-stream?url=' + encodeURIComponent(url));
+            const data = await resp.json();
+            if (!data.m3u8Url) throw new Error(data.error || 'No stream');
+            const playableUrl = getVideoProxyUrl(data.m3u8Url) + '&referer=' + encodeURIComponent(data.referer);
+            playerFrame.src = buildPlayerUrl(playableUrl, {
+                title: pageTitle.textContent + ' — ' + emb.host,
+                skipIntro: data.intro && data.intro.end > data.intro.start ? { start: data.intro.start, end: data.intro.end } : null,
+                skipOutro: data.outro && data.outro.end > data.outro.start ? { start: data.outro.start, end: data.outro.end } : null,
+                subs: (data.tracks || []).filter(t => t.file).map(t => ({
+                    label: t.label || t.lang || 'Subtitles',
+                    lang: t.lang || 'en',
+                    file: getVideoProxyUrl(t.file) + '&referer=' + encodeURIComponent(data.referer),
+                    default: !!t.default,
+                })),
+            });
+            loadingOverlay.style.display = 'none';
+            return;
+        } catch (e) {
+            console.error('Embed HLS resolve failed, falling back to iframe:', e);
+        }
+    }
+
+    loadingOverlay.querySelector('span').textContent = 'Loading embed server...';
+    // Play the embed in the iframe directly (proxied to strip frame-blocking headers).
+    playerFrame.src = getVideoProxyUrl(url);
+    loadingOverlay.style.display = 'none';
+}
+
+// ============ AUTO-NEXT ============
+function resumeSource() {
+    const ls = state.lastSource;
+    if (!ls) return;
+    if (ls.type === 'megap') {
+        selectMegapServer(ls.lang || 'sub');
+    } else if (ls.type === 'miruro') {
+        const exists = state.miruroServers.find(s => s.provider === ls.provider && s.category === ls.category);
+        if (exists) selectMiruroServer(exists.provider, exists.category);
+        else if (state.miruroServers.length) selectMiruroServer(state.miruroServers[0].provider, state.miruroServers[0].category);
+    } else if (ls.type === 'embed') {
+        const emb = ls.host ? state.embeds.find(e => e.host === ls.host) : null;
+        if (emb) selectEmbedServer(emb.url);
+        else if (state.embeds.length) selectEmbedServer(state.embeds[0].url);
+    }
+    // anikaitv: loadServers already auto-selects the first server
+}
+
+window.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (e.source !== playerFrame.contentWindow) return;
+
+    if (d.type === 'player-progress') {
+        savePlaying(d.current, d.duration);
+        if (d.current > 30) markWatched(state.currentEp);
+        return;
+    }
+    if (d.type !== 'video-ended') return;
+    markWatched(state.currentEp);
+    const duration = 0;
+    savePlaying(duration, 0);
+    if (!settings.autoNext) return;
+    const idx = state.episodes.findIndex(ep => ep.num === state.currentEp);
+    const next = state.episodes[idx + 1];
+    if (next) selectEpisode(next.num, { resume: true });
+});
+
+// ============ CONTROLS ============
+function toggleLight() {
+    const on = playerWrapper.classList.toggle('light-on');
+    document.getElementById('ctrlLight').classList.toggle('on', on);
+}
+
+function expandPlayer() {
+    const el = playerWrapper;
+    if (!document.fullscreenElement) {
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+}
+
+// ============ HELPERS ============
+function retryLastServer() {
+    if (state.currentMegap) return selectMegapServer(state.currentMegap);
+    if (state.currentMiruro) {
+        const [p, c] = state.currentMiruro.split(':');
+        return selectMiruroServer(p, c);
+    }
+    if (state.currentEmbed) return selectEmbedServer(state.currentEmbed);
+    return selectServer(state.currentSv);
+}
+
+function showError(msg) {
+    loadingOverlay.innerHTML = `
+        <i class="fas fa-exclamation-circle" style="font-size:2.5rem;color:#ef4444;"></i>
+        <p style="color:#7a82a0;font-size:0.9rem;">${msg.substring(0, 120)}</p>
+        <button class="retry-btn" onclick="retryLastServer()"><i class="fas fa-redo"></i> Retry</button>
+    `;
+    loadingOverlay.style.display = 'flex';
+}
+
+function goBack() {
+    window.history.back();
+}
+
+const yrEl = document.getElementById('year');
+if (yrEl) yrEl.textContent = new Date().getFullYear();
+console.log('Watch page initialized. Slug:', state.slug);
+</script>
+
+<script>
+// ============ SITE HEADER INTERACTIONS (anikaitv-style) ============
+(function () {
+    const menu = document.getElementById('menu');
+    const toggler = document.getElementById('menu-toggler');
+    const search = document.getElementById('search');
+    const searchToggler = document.getElementById('search-toggler');
+    const menuLis = () => menu ? Array.from(menu.querySelectorAll(':scope > ul > li')) : [];
+
+    function closeMenu() {
+        if (menu) menu.classList.remove('open');
+        if (toggler) toggler.classList.remove('active');
+        menuLis().forEach(li => li.classList.remove('active'));
+    }
+
+    if (toggler && menu) {
+        toggler.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = menu.classList.toggle('open');
+            toggler.classList.toggle('active', open);
+            if (!open) menuLis().forEach(li => li.classList.remove('active'));
+        });
+    }
+
+    menuLis().forEach(li => {
+        const sub = li.querySelector(':scope > ul');
+        const a = li.querySelector(':scope > a');
+        if (!sub || (a && a.getAttribute('href'))) return;
+
+        li.addEventListener('mouseenter', () => {
+            if (window.innerWidth >= 1200) {
+                menuLis().forEach(x => x.classList.remove('active'));
+                li.classList.add('active');
+            }
+        });
+        li.addEventListener('mouseleave', () => li.classList.remove('active'));
+        li.addEventListener('click', (e) => {
+            if (a && a.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const was = li.classList.contains('active');
+                menuLis().forEach(x => x.classList.remove('active'));
+                li.classList.toggle('active', !was);
+            }
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (menu && !menu.contains(e.target) && toggler && !toggler.contains(e.target)) closeMenu();
+    });
+
+    const form = search ? search.querySelector('form') : null;
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const inp = form.querySelector('input[name="keyword"]');
+            const kw = (inp && inp.value || '').trim();
+            if (kw) window.location.href = '/?keyword=' + encodeURIComponent(kw);
+        });
+    }
+
+    if (searchToggler) {
+        searchToggler.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!search) return;
+            const show = search.classList.toggle('show');
+            if (show) {
+                const inp = search.querySelector('input[name="keyword"]');
+                if (inp) inp.focus();
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>
