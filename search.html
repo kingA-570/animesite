@@ -167,8 +167,8 @@
         .search-page .result-head h1 { font-size: 1.35rem; font-weight: 800; color: var(--c-text-bright); }
         .search-page .result-head h1 em { color: var(--c-accent); font-style: normal; }
         .search-page .result-head .count { color: var(--c-text-3); font-size: 0.85rem; }
-        .search-page .ani.items { display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px 14px; }
-        .search-page .ani.items .item { min-width: 0; }
+        .search-page .ani.items { display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px 14px; margin: 0; }
+        .search-page .ani.items .item { width: 100%; float: none; padding: 0; margin: 0; min-width: 0; }
         @media (max-width: 1400px) { .search-page .ani.items { grid-template-columns: repeat(4, 1fr); } }
         @media (max-width: 1100px) { .search-page .ani.items { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 700px) { .search-page .ani.items { grid-template-columns: repeat(2, 1fr); } }
