@@ -104,29 +104,27 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
+  border: none;
   border-radius: 50%;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface-3);
-  color: var(--c-text-2);
+  background: transparent;
+  color: #ef4444;
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
 .continue-watching-remove svg {
   width: 20px;
   height: 20px;
-  transition: transform 0.2s ease;
 }
 
 .continue-watching-remove:hover,
 .continue-watching-remove:focus-visible {
-  color: var(--c-accent);
-  border-color: var(--c-accent);
-  background: var(--c-hover);
-  transform: scale(1.08);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.14);
+  transform: scale(1.1);
 }
 
 .continue-watching-remove:active {

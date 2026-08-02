@@ -896,6 +896,8 @@
                     <div id="miruroList"></div>
                     <div id="megapList"></div>
                     <div id="embedList"></div>
+                    <div id="apipList"></div>
+                    <div id="ytList"></div>
                 </div>
             </div>
 
@@ -1367,9 +1369,14 @@ async function loadMiruroEpisodes(anikaitvError) {
     } catch (e) {
         console.error('Miruro fallback failed:', e);
         // Final fallback: both anikaitv and miruro are down, but we resolved
-        // AniList. Build a numeric episode list from AniList's episode count so
-        // the MEGA PLAY servers (which don't depend on anikaitv/miruro) still work.
-        const total = (state.info && state.info.episodes) || 0;
+        // AniList. Build a numeric episode list from AniList so the MEGA PLAY
+        // servers (which don't depend on anikaitv/miruro) still work. AniList
+        // leaves `episodes` null for ongoing shows, so fall back to the next
+        // airing episode number (aired count = next - 1).
+        const info = state.info || {};
+        const nextEp = (info.nextAiringEpisode && info.nextAiringEpisode.episode) || 0;
+        let total = info.episodes || (nextEp ? nextEp - 1 : 0);
+        if (total < 1) total = nextEp;
         if (state.anilistId && total) {
             const list = Array.from({ length: total }, (_, i) => ({ num: String(i + 1), title: 'Episode ' + (i + 1), miruro: true }));
             state.episodes = list;
@@ -1412,6 +1419,19 @@ function applyInfo(resolved) {
         pageTitle.textContent = resolved.title;
     }
     const info = resolved.info;
+    // TMDB id (for the apiplayer source) — prefer the resolver's value, else
+    // dig it out of AniList externalLinks.
+    state.tmdbId = resolved.tmdbId || null;
+    if (!state.tmdbId && info && Array.isArray(info.externalLinks)) {
+        for (const link of info.externalLinks) {
+            const site = String(link.site || '').toLowerCase();
+            const url = String(link.url || '');
+            if (site.includes('themoviedb') || url.includes('themoviedb.org')) {
+                const m = url.match(/\/tv\/(\d+)/) || url.match(/\/movie\/(\d+)/);
+                if (m) { state.tmdbId = m[1]; break; }
+            }
+        }
+    }
     if (!info) return;
     state.info = info;
     state.poster = info.bannerImage || info.coverImage?.extraLarge || info.coverImage?.large || '';
@@ -1587,6 +1607,8 @@ async function selectEpisode(numStr, opts = {}) {
     document.getElementById('miruroList').innerHTML = '';
     document.getElementById('megapList').innerHTML = '';
     document.getElementById('embedList').innerHTML = '';
+    document.getElementById('apipList').innerHTML = '';
+    document.getElementById('ytList').innerHTML = '';
 
     // Load aniskip data for this episode (miruro mappings) — used by skip buttons
     loadAniskip(ep.num).catch(() => {});
@@ -1597,15 +1619,30 @@ async function selectEpisode(numStr, opts = {}) {
         await loadMiruroOptions(ep, !opts.resume);
         renderMegapOptions();
         loadEmbedOptions(ep);
-        if (opts.resume) resumeSource();
+        renderApiplayerOptions();
+        renderYoutubeOptions();
+        if (opts.resume) {
+            resumeSource();
+        } else if (!state.currentMiruro && !state.currentMegap) {
+            // Neither anikaitv nor miruro produced a playable source (e.g. the
+            // miruro pipe is Cloudflare-blocked on datacenter IPs) — fall back
+            // to MEGA PLAY, which is independent of both.
+            await selectMegapServer('sub');
+        }
         return;
     }
 
     await loadServers(ep);
-    loadMiruroOptions(ep);
+    await loadMiruroOptions(ep);
     renderMegapOptions();
     loadEmbedOptions(ep);
-    if (opts.resume) resumeSource();
+    renderApiplayerOptions();
+    renderYoutubeOptions();
+    if (opts.resume) {
+        resumeSource();
+    } else if (!state.currentSv && !state.currentMiruro && !state.currentMegap) {
+        await selectMegapServer('sub');
+    }
 }
 
 async function loadAniskip(epNum) {
@@ -1615,6 +1652,12 @@ async function loadAniskip(epNum) {
     }
     const resp = await fetch(`/api/miruro/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(epNum)}`);
     const data = await resp.json();
+    // The miruro mappings are the most reliable source for a TMDB id (used by
+    // the apiplayer source); AniList externalLinks rarely include it.
+    if (data.mappings && data.mappings.themoviedbId) {
+        state.tmdbId = data.mappings.themoviedbId;
+        if (document.getElementById('apipList').children.length === 0) renderApiplayerOptions();
+    }
     const entries = data.mappings?.aniskip || null;
     if (entries) {
         state.aniskip = {
@@ -1941,6 +1984,7 @@ async function selectMegapServer(lang) {
     document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#apipList .sv-btn, #ytList .sv-btn').forEach(btn => btn.classList.remove('active'));
 
     currentEpType.textContent = lang.toUpperCase();
 
@@ -2077,6 +2121,133 @@ async function selectEmbedServer(url) {
     loadingOverlay.style.display = 'none';
 }
 
+// ============ APIPLAYER (apiplayer.ru) ============
+// TMDB-based streaming API. We always have a usable embed URL (the site
+// allows framing), and optionally a resolved HLS master. We prefer HLS when
+// available so the custom player/skip buttons still work.
+async function renderApiplayerOptions() {
+    const list = document.getElementById('apipList');
+    list.innerHTML = '';
+    try {
+        if (!state.tmdbId) return;
+        const epNum = state.currentEp;
+        if (!epNum) return;
+        const season = (state.info && state.info.season) || 1;
+        list.innerHTML = `
+            <div class="server-section">
+                <div class="server-type-label">APIPLAYER · TMDB ${state.tmdbId}</div>
+                <div class="server-list">
+                    <div class="sv-btn embed"
+                         onclick="selectApiplayerServer()">
+                        Episode ${epNum}
+                    </div>
+                </div>
+            </div>`;
+        updateSvCount();
+    } catch (e) {
+        console.warn('Apiplayer options unavailable:', e.message);
+        list.innerHTML = '';
+    }
+}
+
+async function selectApiplayerServer() {
+    if (!state.tmdbId || !state.currentEp) return;
+    state.lastSource = { type: 'apiplayer' };
+    document.querySelectorAll('.sv-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = [...document.querySelectorAll('#apipList .sv-btn')].pop();
+    if (btn) btn.classList.add('active');
+    currentEpType.textContent = 'APIPLAYER';
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Resolving apiplayer stream...';
+
+    const season = (state.info && state.info.season) || 1;
+    try {
+        const resp = await fetch(`/api/apiplayer/stream?tmdbId=${state.tmdbId}&season=${season}&episode=${encodeURIComponent(state.currentEp)}`);
+        const data = await resp.json();
+        if (data.m3u8Url) {
+            playerFrame.src = buildPlayerUrl(getVideoProxyUrl(data.m3u8Url) + '&referer=' + encodeURIComponent(data.referer), {
+                title: pageTitle.textContent + ' — apiplayer',
+            });
+            loadingOverlay.style.display = 'none';
+            return;
+        }
+        // HLS not harvested yet — the embed page harvests client-side and
+        // keeps polling, so just load it directly (apiplayer allows framing).
+        loadingOverlay.querySelector('span').textContent = 'Loading apiplayer player...';
+        playerFrame.src = data.embedUrl || '';
+        loadingOverlay.style.display = 'none';
+    } catch (e) {
+        console.error('Apiplayer stream failed:', e);
+        loadingOverlay.style.display = 'none';
+        showError('Apiplayer stream failed: ' + e.message);
+    }
+}
+
+// ============ YOUTUBE ============
+// Server-side search (no API key) for "full episode" videos; played through
+// the youtube-nocookie embed so the site still owns the iframe.
+async function renderYoutubeOptions() {
+    const list = document.getElementById('ytList');
+    list.innerHTML = '';
+    try {
+        await resolveAnilist();
+        if (!state.title) return;
+        const epNum = state.currentEp;
+        const query = `${state.title} Episode ${epNum} Full English Sub`;
+        list.innerHTML = `
+            <div class="server-section">
+                <div class="server-type-label">YOUTUBE · full episodes</div>
+                <div class="server-list">
+                    <div class="yt-loading">Searching YouTube...</div>
+                </div>
+            </div>`;
+        const resp = await fetch('/api/youtube/search?q=' + encodeURIComponent(query));
+        const data = await resp.json();
+        const toSeconds = (len) => {
+            const p = String(len || '').split(':');
+            return p.length === 2 ? (+p[0] * 60) + (+p[1]) : 0;
+        };
+        const vids = (data.videos || []).filter(v => v.length).sort((a, b) => toSeconds(b.length) - toSeconds(a.length));
+        if (vids.length === 0) {
+            list.innerHTML = `
+                <div class="server-section">
+                    <div class="server-type-label">YOUTUBE · full episodes</div>
+                    <div class="server-list"><div class="yt-loading">No results</div></div>
+                </div>`;
+            return;
+        }
+        list.innerHTML = `
+            <div class="server-section">
+                <div class="server-type-label">YOUTUBE · full episodes</div>
+                <div class="server-list">
+                    ${vids.map((v, i) => `
+                        <div class="sv-btn embed"
+                             title="${(v.title || '').replace(/"/g, '&quot;')}"
+                             onclick="selectYoutubeVideo('${v.id}','${(v.channel || '').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
+                            ${i + 1}. ${(v.channel || 'YouTube').slice(0, 22)} <span class="embed-badge">${v.length}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+        updateSvCount();
+    } catch (e) {
+        console.warn('YouTube options unavailable:', e.message);
+        list.innerHTML = '';
+    }
+}
+
+function selectYoutubeVideo(videoId, channel) {
+    state.lastSource = { type: 'youtube' };
+    document.querySelectorAll('.sv-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = [...document.querySelectorAll('#ytList .sv-btn')].find(b => b.textContent.includes(channel));
+    if (btn) btn.classList.add('active');
+    currentEpType.textContent = 'YOUTUBE';
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading YouTube...';
+    playerFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
+    loadingOverlay.style.display = 'none';
+}
+
 // ============ AUTO-NEXT ============
 function resumeSource() {
     const ls = state.lastSource;
@@ -2091,6 +2262,11 @@ function resumeSource() {
         const emb = ls.host ? state.embeds.find(e => e.host === ls.host) : null;
         if (emb) selectEmbedServer(emb.url);
         else if (state.embeds.length) selectEmbedServer(state.embeds[0].url);
+    } else if (ls.type === 'apiplayer') {
+        selectApiplayerServer();
+    } else if (ls.type === 'youtube') {
+        const btn = document.querySelector('#ytList .sv-btn');
+        if (btn) btn.click();
     }
     // anikaitv: loadServers already auto-selects the first server
 }

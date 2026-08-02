@@ -11,7 +11,7 @@ JWKS_URL = os.environ.get("MIRURO_JWKS_URL", "https://www.miruro.to/api/secure/j
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
 )
 
 HEADERS = {
@@ -54,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_jwks(self):
         try:
-            resp = requests.get(JWKS_URL, headers=HEADERS, impersonate="chrome110", timeout=20)
+            resp = requests.get(JWKS_URL, headers=HEADERS, impersonate="chrome136", timeout=20)
             version = resp.headers.get("x-protocol-version") or ""
             body = resp.text if resp.status_code == 200 else resp.text[:300]
             self._json(200, {"status": resp.status_code, "body": body, "version": version})
@@ -80,7 +80,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "missing e"})
                 return
             url = f"{PIPE_URL}?e={e}"
-            resp = requests.get(url, headers=HEADERS, impersonate="chrome110", timeout=30)
+            resp = requests.get(url, headers=HEADERS, impersonate="chrome136", timeout=30)
             body = resp.text if resp.status_code == 200 else resp.text[:300]
             self._json(
                 200,

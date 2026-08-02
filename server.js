@@ -528,6 +528,7 @@ async function anilistMediaInfo(id) {
       seasonYear
       studios { nodes { name isAnimationStudio } }
       nextAiringEpisode { episode airingAt timeUntilAiring }
+      externalLinks { site url type }
     }
   }`;
   const response = await fetch(ANILIST_GRAPHQL, {
@@ -539,6 +540,21 @@ async function anilistMediaInfo(id) {
   if (response.status !== 200) return null;
   const json = await response.json();
   return json?.data?.Media || null;
+}
+
+// Pull the TMDB id out of an AniList Media object's externalLinks
+// (the site usually lists `https://www.themoviedb.org/tv/1234`).
+function extractTmdbId(info) {
+  if (!info) return null;
+  for (const link of info.externalLinks || []) {
+    const site = String(link.site || '').toLowerCase();
+    const url = String(link.url || '');
+    if (site.includes('themoviedb') || url.includes('themoviedb.org')) {
+      const m = url.match(/\/tv\/(\d+)/) || url.match(/\/movie\/(\d+)/) || url.match(/themoviedb\.org\/(?:tv|movie)\/(\d+)/);
+      if (m) return m[1];
+    }
+  }
+  return null;
 }
 
 async function anilistSearch(queryTitle) {
@@ -1182,6 +1198,124 @@ async function embedToHls(embedUrl) {
 }
 
 // ========================
+// APIPLAYER (apiplayer.ru) STREAM RESOLVER
+// apiplayer is a TMDB-powered streaming API (no key). It serves an embed
+// player page that harvests an HLS stream in the background; the page exposes
+// a signed /hls-proxy/status/{...} URL we can poll for a ready master m3u8.
+// The embed page itself plays fine in an iframe (frame-ancestors *), so the
+// embed URL is always returned as a fallback even when the m3u8 isn't ready.
+// ========================
+const APIPLAYER_BASE = 'https://apiplayer.ru';
+const APIPLAYER_REFERER = 'https://apiplayer.ru/';
+const APIPLAYER_HEADERS = {
+  'User-Agent': USER_AGENT,
+  'Referer': APIPLAYER_REFERER,
+  'Accept': 'text/html,application/xhtml+xml,*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+const apiplayerCache = new Map();
+
+async function apiplayerStream(tmdbId, season, episode) {
+  const cacheKey = `${tmdbId}:${season}:${episode}`;
+  if (apiplayerCache.has(cacheKey)) return apiplayerCache.get(cacheKey);
+
+  const embedUrl = `${APIPLAYER_BASE}/embed/tv/${tmdbId}/${season}/${episode}`;
+  const result = { tmdbId, season, episode, embedUrl, referer: APIPLAYER_REFERER, m3u8Url: null, tracks: [] };
+
+  try {
+    const pageResp = await fetch(embedUrl, { headers: APIPLAYER_HEADERS, signal: AbortSignal.timeout(25000) });
+    if (pageResp.ok) {
+      const html = await pageResp.text();
+      const m = html.match(/harvestPollUrl":"([^"]+)/);
+      if (m) {
+        const pollUrl = m[1].replace(/\\u0026/g, '&');
+        // Poll a short while — the embed page keeps polling client-side, so an
+        // unresolved m3u8 here is fine and we fall back to the embed.
+        for (let i = 0; i < 5; i++) {
+          try {
+            const stResp = await fetch(APIPLAYER_BASE + pollUrl, { headers: APIPLAYER_HEADERS, signal: AbortSignal.timeout(10000) });
+            const st = await stResp.json();
+            if (st.master_url) {
+              const candidate = /^https?:/.test(st.master_url) ? st.master_url : APIPLAYER_BASE + st.master_url.replace(/\\u0026/g, '&');
+              // The status poll can report a master before the harvest is fully
+              // cached; verify it actually serves an HLS playlist before
+              // committing to the player route.
+              try {
+                const masterResp = await fetch(candidate, { headers: APIPLAYER_HEADERS, signal: AbortSignal.timeout(10000) });
+                if (masterResp.ok && /mpegurl|application\/vnd\.apple/.test(masterResp.headers.get('content-type') || '')) {
+                  result.m3u8Url = candidate;
+                }
+              } catch { /* leave null -> embed fallback */ }
+            }
+            if (st.available && result.m3u8Url) break;
+          } catch { /* poll may be transiently challenged */ }
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+      }
+    }
+  } catch { /* keep embedUrl fallback */ }
+
+  apiplayerCache.set(cacheKey, result);
+  setTimeout(() => apiplayerCache.delete(cacheKey), 5 * 60 * 1000);
+  return result;
+}
+
+// ========================
+// YOUTUBE SEARCH SCRAPER
+// Scrapes youtube.com/results for video ids without an API key (no key means
+// we can't use the official Data API; the search page embeds ytInitialData).
+// Used for the "YouTube" source — many anime have full episodes on official
+// channels (Muse Asia, Ani-One Asia, ...).
+// ========================
+const YT_HEADERS = {
+  'User-Agent': USER_AGENT,
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept': 'text/html,application/xhtml+xml,*/*',
+};
+
+const youtubeCache = new Map();
+
+function youtubeExtractVideos(html) {
+  const m = html.match(/ytInitialData\s*=\s*(\{.*?\});\s*<\/script>/s) || html.match(/ytInitialData\s*=\s*(\{.*?\});/s);
+  if (!m) return [];
+  let data;
+  try { data = JSON.parse(m[1]); } catch { return []; }
+  const vids = [];
+  const seen = new Set();
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (o.videoRenderer) {
+      const v = o.videoRenderer;
+      const id = v.videoId;
+      const title = v.title?.runs?.map((r) => r.text).join('') || v.title?.simpleText || '';
+      const length = v.lengthText?.simpleText || '';
+      const channel = v.ownerText?.runs?.map((r) => r.text).join('') || '';
+      if (id && title && !seen.has(id)) {
+        seen.add(id);
+        vids.push({ id, title, length, channel });
+      }
+    }
+    for (const k of Object.keys(o)) walk(o[k]);
+  };
+  walk(data);
+  return vids.slice(0, 12);
+}
+
+async function youtubeSearch(query) {
+  const cacheKey = query.toLowerCase().trim();
+  if (youtubeCache.has(cacheKey)) return youtubeCache.get(cacheKey);
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const response = await fetch(url, { headers: YT_HEADERS, signal: AbortSignal.timeout(20000) });
+  if (response.status !== 200) throw new Error(`YouTube search failed (${response.status})`);
+  const html = await response.text();
+  const vids = youtubeExtractVideos(html);
+  youtubeCache.set(cacheKey, vids);
+  setTimeout(() => youtubeCache.delete(cacheKey), 10 * 60 * 1000);
+  return vids;
+}
+
+// ========================
 // HOME PAGE DATA FETCHERS
 // ========================
 
@@ -1429,6 +1563,7 @@ const server = http.createServer(async (req, res) => {
       }
       try {
         const resolved = await resolveAnilistId(slug);
+        if (resolved) resolved.tmdbId = extractTmdbId(resolved.info) || null;
         log(req.method, reqUrl.pathname + reqUrl.search, 200, '[MIRURO]');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ resolved }));
@@ -1635,11 +1770,52 @@ const server = http.createServer(async (req, res) => {
         const info = await anilistMediaInfo(anilistId);
         if (!info) throw new Error('AniList info unavailable');
         const title = info.title?.english || info.title?.romaji || info.title?.native || '';
+        const tmdbId = extractTmdbId(info);
         log(req.method, reqUrl.pathname + reqUrl.search, 200, '[ANILIST]');
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ resolved: { anilistId, title, info } }));
+        return res.end(JSON.stringify({ resolved: { anilistId, title, tmdbId, info } }));
       } catch (err) {
         log('ANILIST_INFO_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
+    // ========== ROUTE: /api/youtube/search (YouTube results without an API key) ==========
+    if (reqUrl.pathname === '/api/youtube/search') {
+      const q = reqUrl.searchParams.get('q') || '';
+      if (!q) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing q parameter' }));
+      }
+      try {
+        const videos = await youtubeSearch(q);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[YOUTUBE] ${videos.length}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ query: q, videos }));
+      } catch (err) {
+        log('YOUTUBE_SEARCH_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, videos: [] }));
+      }
+    }
+
+    // ========== ROUTE: /api/apiplayer/stream (apiplayer.ru embed + optional HLS) ==========
+    if (reqUrl.pathname === '/api/apiplayer/stream') {
+      const tmdbId = reqUrl.searchParams.get('tmdbId');
+      const season = reqUrl.searchParams.get('season') || '1';
+      const episode = reqUrl.searchParams.get('episode');
+      if (!tmdbId || !episode) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing tmdbId and/or episode' }));
+      }
+      try {
+        const stream = await apiplayerStream(tmdbId, season, episode);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[APIPLAYER] m3u8=${stream.m3u8Url ? 'yes' : 'no'}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(stream));
+      } catch (err) {
+        log('APIPLAYER_STREAM_ERR', reqUrl.search, 502, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
