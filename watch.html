@@ -919,8 +919,6 @@
                 </div>
                 <div class="server-body">
                     <div id="megapList"></div>
-                    <div id="miruroList"></div>
-                    <div id="embedList"></div>
                     <div id="apipList"></div>
                 </div>
             </div>
@@ -1011,15 +1009,12 @@ const state = {
     currentEp: null,
     currentSv: null,
     loading: false,
-    epSource: 'miruro',
+    epSource: 'anilist',
     anilistId: null,
-    miruroServers: [],
-    currentMiruro: null,
     currentMegap: null,
-    currentEmbed: null,
-    embeds: [],
+    currentMegapSource: 'ani',
     aniskip: null,
-    lastSource: null,       // { type: 'megap'|'miruro'|'embed'|'apiplayer', ... } for auto-next resume
+    lastSource: null,       // { type: 'megap'|'apiplayer', ... } for auto-next resume
     epView: localStorage.getItem('ak_epView') || 'grid',
     epRanges: [],
     epRange: 0,
@@ -1520,10 +1515,8 @@ async function selectEpisode(numStr, opts = {}) {
     if (!ep) return;
 
     state.currentEp = ep.num;
-    state.currentMiruro = null;
     state.currentMegap = null;
-    state.currentEmbed = null;
-    state.embeds = [];
+    state.currentMegapSource = 'ani';
     state.aniskip = null;
 
     document.querySelectorAll('.ep-btn, .ep-grid-item').forEach(btn => btn.classList.toggle('active', btn.dataset.num === numStr));
@@ -1535,7 +1528,7 @@ async function selectEpisode(numStr, opts = {}) {
     saveContinue();
     renderEpisodes(state.episodes);
 
-    ['miruroList', 'megapList', 'embedList', 'apipList'].forEach(id => {
+    ['megapList', 'apipList'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '';
     });
@@ -1544,19 +1537,15 @@ async function selectEpisode(numStr, opts = {}) {
     loadAniskip(ep.num).catch(() => {});
 
     // Render every working source list first, then start the best default.
-    // MEGA PLAY (sub) is the default; miruro is only loaded in the background
-    // so a slow/dead pipe never blocks playback. VIDPLAY embeds are the
-    // automatic fallback if MEGA PLAY has no stream for the episode.
-    const miruroPromise = loadMiruroOptions(ep).catch(() => {});
+    // MEGA PLAY (sub, AniList mapping) is the default; MEGA CLUB (MAL mapping)
+    // is the manual second megaplay-family option. APIPLAYER (TMDB) is last.
     renderMegapOptions();
-    loadEmbedOptions(ep);
     renderApiplayerOptions();
 
     if (opts.resume) {
         resumeSource();
-        await miruroPromise;
-    } else if (!state.currentMiruro && !state.currentMegap) {
-        await selectMegapServer('sub');
+    } else if (!state.currentMegap) {
+        await selectMegapServer('sub', 'ani');
     }
 }
 
@@ -1614,104 +1603,11 @@ function skipParams() {
     };
 }
 
-// ============ MIRURO SERVERS ============
-async function loadMiruroOptions(ep) {
-    const miruroList = document.getElementById('miruroList');
-    miruroList.innerHTML = `
-        <div class="server-section">
-            <div class="server-type-label">MIRURO</div>
-            <div class="server-list">
-                <div class="sv-btn" style="opacity:.7;pointer-events:none;font-size:.75rem;">
-                    <i class="fas fa-spinner fa-spin"></i> Loading miruro sources...
-                </div>
-            </div>
-        </div>`;
-
-    try {
-        await resolveAnilist();
-        const serversResp = await fetch(`/api/miruro/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(ep.num)}`);
-        const serversData = await serversResp.json();
-        if (!serversData.servers || serversData.servers.length === 0) {
-            miruroList.innerHTML = '';
-            return;
-        }
-
-        state.miruroServers = serversData.servers;
-        state.miruroServers.sort((a, b) => (a.provider === 'bonk' ? 0 : 1) - (b.provider === 'bonk' ? 0 : 1));
-        renderMiruroServers();
-
-        if (!state.aniskip && serversData.mappings?.aniskip) {
-            state.aniskip = {
-                op: pickAniskip(serversData.mappings.aniskip, 'op'),
-                ed: pickAniskip(serversData.mappings.aniskip, 'ed'),
-            };
-        }
-    } catch (e) {
-        console.warn('Miruro unavailable:', e.message);
-        miruroList.innerHTML = '';
-    }
-}
-
-function renderMiruroServers() {
-    const miruroList = document.getElementById('miruroList');
-    const svs = state.miruroServers;
-    miruroList.innerHTML = `
-        <div class="server-section">
-            <div class="server-type-label">MIRURO · ${svs.length} ${svs.length === 1 ? 'source' : 'sources'}</div>
-            <div class="server-list">
-                ${svs.map(sv => `
-                    <div class="sv-btn ${sv.category} ${state.currentMiruro === `${sv.provider}:${sv.category}` ? 'active' : ''}"
-                         data-miruro="${sv.provider}:${sv.category}"
-                         title="${(sv.title || sv.provider).replace(/"/g, '&quot;')}"
-                         onclick="selectMiruroServer('${sv.provider}', '${sv.category}')">
-                        ${sv.provider} · ${sv.category.toUpperCase()}
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
-    updateSvCount();
-}
-
-async function selectMiruroServer(provider, category) {
-    state.currentMiruro = provider + ':' + category;
-    state.lastSource = { type: 'miruro', provider, category };
-    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.toggle('active', btn.dataset.miruro === state.currentMiruro));
-    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
-
-    const sv = state.miruroServers.find(s => s.provider === provider && s.category === category);
-    if (sv && sv.title) currentEpName.textContent = `Episode ${state.currentEp} · ${sv.title}`;
-    if (category) currentEpType.textContent = category.toUpperCase();
-
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.querySelector('span').textContent = 'Loading miruro stream...';
-
-    try {
-        const resp = await fetch(`/api/miruro/stream?anilistId=${state.anilistId}&provider=${encodeURIComponent(provider)}&category=${encodeURIComponent(category)}&episode=${encodeURIComponent(state.currentEp)}`);
-        const data = await resp.json();
-
-        if (!data.m3u8Url) {
-            throw new Error(data.error || 'No HLS stream available for this source');
-        }
-
-        playerFrame.src = buildPlayerUrl(data.m3u8Url, {
-            title: pageTitle.textContent + ' — Miruro',
-            ...skipParams(),
-        });
-        loadingOverlay.style.display = 'none';
-    } catch (e) {
-        console.error('Miruro stream failed:', e);
-        const idx = state.miruroServers.findIndex(s => s.provider === provider && s.category === category);
-        const next = state.miruroServers[idx + 1];
-        if (next) {
-            selectMiruroServer(next.provider, next.category);
-        } else {
-            showError(e.message);
-        }
-    }
-}
-
-// ============ MEGAPLAY (megaplay.buzz) SERVERS ============
+// ============ MEGA PLAY / MEGA CLUB (megaplay.buzz KotoCDN) SERVERS ============
+// MEGA PLAY resolves the KotoCDN AniList mapping (/stream/ani/...) and
+// auto-falls back to the MAL mapping (/stream/mal/...) server-side. MEGA CLUB
+// is the same megaplay API keyed straight off the MAL mapping. Both return a
+// real HLS stream that plays through player.html.
 async function renderMegapOptions() {
     const megapList = document.getElementById('megapList');
     if (!megapList) return;
@@ -1725,39 +1621,46 @@ async function renderMegapOptions() {
         return;
     }
 
+    const activeSrc = (s, l) => (state.currentMegapSource === s && state.currentMegap === l) ? 'active' : '';
     megapList.innerHTML = `
         <div class="server-section">
-            <div class="server-type-label">MEGA PLAY</div>
+            <div class="server-type-label">MEGA PLAY · ANILIST</div>
             <div class="server-list">
-                <div class="sv-btn sub ${state.currentMegap === 'sub' ? 'active' : ''}" data-megap="sub" onclick="selectMegapServer('sub')">Sub</div>
-                <div class="sv-btn dub ${state.currentMegap === 'dub' ? 'active' : ''}" data-megap="dub" onclick="selectMegapServer('dub')">Dub</div>
+                <div class="sv-btn sub ${activeSrc('ani', 'sub')}" data-megap="ani:sub" onclick="selectMegapServer('sub', 'ani')">Sub</div>
+                <div class="sv-btn dub ${activeSrc('ani', 'dub')}" data-megap="ani:dub" onclick="selectMegapServer('dub', 'ani')">Dub</div>
+            </div>
+        </div>
+        <div class="server-section">
+            <div class="server-type-label">MEGA CLUB · MAL</div>
+            <div class="server-list">
+                <div class="sv-btn sub ${activeSrc('mal', 'sub')}" data-megap="mal:sub" onclick="selectMegapServer('sub', 'mal')">Sub</div>
+                <div class="sv-btn dub ${activeSrc('mal', 'dub')}" data-megap="mal:dub" onclick="selectMegapServer('dub', 'mal')">Dub</div>
             </div>
         </div>`;
     updateSvCount();
 }
 
-async function selectMegapServer(lang) {
+async function selectMegapServer(lang, source = 'ani') {
     state.currentMegap = lang;
-    state.lastSource = { type: 'megap', lang };
-    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.toggle('active', btn.dataset.megap === lang));
-    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
+    state.currentMegapSource = source;
+    state.lastSource = { type: 'megap', lang, source };
+    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.toggle('active', btn.dataset.megap === source + ':' + lang));
     document.querySelectorAll('#apipList .sv-btn').forEach(btn => btn.classList.remove('active'));
 
-    currentEpType.textContent = lang.toUpperCase();
+    currentEpType.textContent = (source === 'mal' ? 'MEGA CLUB' : 'MEGA PLAY') + ' · ' + lang.toUpperCase();
 
     loadingOverlay.style.display = 'flex';
-    loadingOverlay.querySelector('span').textContent = 'Loading MegaPlay stream...';
+    loadingOverlay.querySelector('span').textContent = source === 'mal' ? 'Loading Mega Club stream...' : 'Loading MegaPlay stream...';
 
     try {
         await resolveAnilist();
-        const resp = await fetch(`/api/megap/stream?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}&lang=${lang}`);
+        const resp = await fetch(`/api/megap/stream?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}&lang=${lang}&source=${source}`);
         const data = await resp.json();
         if (!data.m3u8Url) throw new Error(data.error || 'MegaPlay returned no stream');
 
         const playableUrl = getVideoProxyUrl(data.m3u8Url) + '&referer=' + encodeURIComponent(data.referer);
         playerFrame.src = buildPlayerUrl(playableUrl, {
-            title: pageTitle.textContent + ' — MegaPlay',
+            title: pageTitle.textContent + ' — ' + (data.via || (source === 'mal' ? 'Mega Club' : 'MegaPlay')),
             skipIntro: data.intro && data.intro.end > data.intro.start ? { start: data.intro.start, end: data.intro.end } : null,
             skipOutro: data.outro && data.outro.end > data.outro.start ? { start: data.outro.start, end: data.outro.end } : null,
             subs: (data.tracks || []).filter(t => t.file).map(t => ({
@@ -1770,124 +1673,8 @@ async function selectMegapServer(lang) {
         loadingOverlay.style.display = 'none';
     } catch (e) {
         console.error('MegaPlay stream failed:', e);
-        const vidplay = state.embeds.find(emb => emb.kind === 'hls' && /vidplay/i.test(emb.host || ''));
-        if (vidplay) {
-            currentEpType.textContent = 'VIDPLAY';
-            selectEmbedServer(vidplay.url);
-            return;
-        }
         showError(e.message);
     }
-}
-
-function selectVidplayFallback() {
-    const vidplay = state.embeds.find(emb => emb.kind === 'hls' && /vidplay/i.test(emb.host || ''));
-    if (vidplay) selectEmbedServer(vidplay.url);
-    return !!vidplay;
-}
-
-// ============ MIRURO EMBED SERVERS ============
-// Miruro's "embed" streams can't be turned into a miruro HLS URL directly, so
-// they are rendered as separate server buttons. kotocdn-family hosts
-// (vidtube.site, megaplay.buzz) are resolved to a real HLS stream server-side
-// and played through player.html; everything else is played in the iframe
-// directly. Hosts verified to work inside a plain <iframe> (animegg, vivibebe,
-// otakuhg, otakuvid, bibiemb) are listed first; known-broken hosts last.
-const GOOD_EMBED_HOSTS = ['animegg.org', 'vivibebe.site', 'otakuhg.site', 'otakuvid.online', 'bibiemb.xyz'];
-const BAD_EMBED_HOSTS = ['kwik.cx', 'anidb.app', 'playmogo.com'];
-const KOTOCDN_EMBED_HOSTS = ['vidtube.site', 'megaplay.buzz'];
-
-async function loadEmbedOptions(ep) {
-    const embedList = document.getElementById('embedList');
-    embedList.innerHTML = '';
-
-    try {
-        await resolveAnilist();
-    } catch (e) { return; }
-    if (!state.anilistId) return;
-
-    try {
-        const resp = await fetch(`/api/miruro/embeds?anilistId=${state.anilistId}&episode=${encodeURIComponent(ep.num)}`);
-        const data = await resp.json();
-        const embeds = data.embeds || [];
-        if (embeds.length === 0) return;
-
-        // Dedupe by host, keep the first category seen
-        const seenHosts = new Map();
-        embeds.forEach(emb => {
-            if (!emb.host) return;
-            if (!seenHosts.has(emb.host)) seenHosts.set(emb.host, emb);
-        });
-        const unique = [...seenHosts.values()];
-        unique.sort((a, b) => {
-            const tier = e => e.kind === 'hls' ? 0 : (GOOD_EMBED_HOSTS.indexOf(e.host) >= 0 ? 1 : (BAD_EMBED_HOSTS.indexOf(e.host) >= 0 ? 3 : 2));
-            return tier(a) - tier(b) || a.host.localeCompare(b.host);
-        });
-
-        state.embeds = unique;
-        embedList.innerHTML = `
-            <div class="server-section">
-                <div class="server-type-label">MIRURO EMBED · ${unique.length} ${unique.length === 1 ? 'server' : 'servers'}</div>
-                <div class="server-list">
-                    ${unique.map(emb => `
-                        <div class="sv-btn embed ${state.currentEmbed === emb.url ? 'active' : ''}"
-                             data-embed="${emb.url.replace(/"/g, '&quot;')}"
-                             title="${(emb.provider || '') + ' — ' + emb.url}"
-                             onclick="selectEmbedServer('${emb.url.replace(/'/g, "\\'")}')">
-                            ${emb.host}${emb.kind === 'hls' ? ' <span class="embed-badge">HLS</span>' : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>`;
-        updateSvCount();
-    } catch (e) {
-        console.warn('Embed options unavailable:', e.message);
-        embedList.innerHTML = '';
-    }
-}
-
-async function selectEmbedServer(url) {
-    const emb = state.embeds.find(e => e.url === url);
-    state.currentEmbed = url;
-    state.lastSource = emb ? { type: 'embed', host: emb.host } : { type: 'embed' };
-    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.toggle('active', btn.dataset.embed === url));
-    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
-
-    if (emb) currentEpType.textContent = (emb.category || 'embed').toUpperCase();
-
-    loadingOverlay.style.display = 'flex';
-
-    // kotocdn-family embeds resolve to a real HLS stream -> play via player.html
-    if (emb && emb.kind === 'hls') {
-        loadingOverlay.querySelector('span').textContent = 'Resolving ' + emb.host + ' stream...';
-        try {
-            const resp = await fetch('/api/embed-stream?url=' + encodeURIComponent(url));
-            const data = await resp.json();
-            if (!data.m3u8Url) throw new Error(data.error || 'No stream');
-            const playableUrl = getVideoProxyUrl(data.m3u8Url) + '&referer=' + encodeURIComponent(data.referer);
-            playerFrame.src = buildPlayerUrl(playableUrl, {
-                title: pageTitle.textContent + ' — ' + emb.host,
-                skipIntro: data.intro && data.intro.end > data.intro.start ? { start: data.intro.start, end: data.intro.end } : null,
-                skipOutro: data.outro && data.outro.end > data.outro.start ? { start: data.outro.start, end: data.outro.end } : null,
-                subs: (data.tracks || []).filter(t => t.file).map(t => ({
-                    label: t.label || t.lang || 'Subtitles',
-                    lang: t.lang || 'en',
-                    file: getVideoProxyUrl(t.file) + '&referer=' + encodeURIComponent(data.referer),
-                    default: !!t.default,
-                })),
-            });
-            loadingOverlay.style.display = 'none';
-            return;
-        } catch (e) {
-            console.error('Embed HLS resolve failed, falling back to iframe:', e);
-        }
-    }
-
-    loadingOverlay.querySelector('span').textContent = 'Loading embed server...';
-    // Play the embed in the iframe directly (proxied to strip frame-blocking headers).
-    playerFrame.src = getVideoProxyUrl(url);
-    loadingOverlay.style.display = 'none';
 }
 
 // ============ APIPLAYER (apiplayer.ru) ============
@@ -1957,15 +1744,7 @@ function resumeSource() {
     const ls = state.lastSource;
     if (!ls) return;
     if (ls.type === 'megap') {
-        selectMegapServer(ls.lang || 'sub');
-    } else if (ls.type === 'miruro') {
-        const exists = state.miruroServers.find(s => s.provider === ls.provider && s.category === ls.category);
-        if (exists) selectMiruroServer(exists.provider, exists.category);
-        else if (state.miruroServers.length) selectMiruroServer(state.miruroServers[0].provider, state.miruroServers[0].category);
-    } else if (ls.type === 'embed') {
-        const emb = ls.host ? state.embeds.find(e => e.host === ls.host) : null;
-        if (emb) selectEmbedServer(emb.url);
-        else if (state.embeds.length) selectEmbedServer(state.embeds[0].url);
+        selectMegapServer(ls.lang || 'sub', ls.source || 'ani');
     } else if (ls.type === 'apiplayer') {
         selectApiplayerServer();
     }
@@ -2009,13 +1788,8 @@ function expandPlayer() {
 
 // ============ HELPERS ============
 function retryLastServer() {
-    if (state.currentMegap) return selectMegapServer(state.currentMegap);
-    if (state.currentMiruro) {
-        const [p, c] = state.currentMiruro.split(':');
-        return selectMiruroServer(p, c);
-    }
-    if (state.currentEmbed) return selectEmbedServer(state.currentEmbed);
-    if (state.currentEp) return selectMegapServer('sub');
+    if (state.currentMegap) return selectMegapServer(state.currentMegap, state.currentMegapSource || 'ani');
+    if (state.currentEp) return selectMegapServer('sub', 'ani');
     return selectApiplayerServer();
 }
 

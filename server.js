@@ -968,40 +968,63 @@ const MEGAP_BASE = 'https://megaplay.buzz';
 const MEGAP_REFERER = 'https://megaplay.buzz/';
 const MEGAP_PAGE_REFERER = 'https://anikototv.to/';
 
-async function megapStream(anilistId, episode, lang) {
-  const pageResp = await fetch(`${MEGAP_BASE}/stream/ani/${anilistId}/${episode}/${lang}`, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Referer': MEGAP_PAGE_REFERER,
-      'Accept': 'text/html,application/xhtml+xml,*/*',
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!pageResp.ok) throw new Error(`megaplay page returned ${pageResp.status}`);
-  const html = await pageResp.text();
-  const dataId = (html.match(/data-id="(\d+)"/) || [])[1];
-  if (!dataId) throw new Error('megaplay embed not synced for this anime/episode');
+async function megapStream(anilistId, episode, lang, source = 'ani') {
+  // MegaPlay/KotoCDN exposes two AniList-independent mappings that resolve the
+  // same video: /stream/ani/{anilistId}/{ep}/{lang} and /stream/mal/{malId}/{ep}/{lang}.
+  // source='ani' (MEGA PLAY) tries the AniList mapping first and auto-falls back
+  // to the MAL mapping; source='mal' (MEGA CLUB) goes straight to the MAL mapping.
+  let info = null;
+  const candidates = [];
+  if (source === 'mal') {
+    info = await anilistMediaInfo(anilistId);
+    const malId = info?.idMal;
+    if (!malId) throw new Error('No MAL id available for this anime');
+    candidates.push({ key: `/stream/mal/${malId}/${episode}/${lang}`, via: 'MAL' });
+  } else {
+    candidates.push({ key: `/stream/ani/${anilistId}/${episode}/${lang}`, via: 'AniList' });
+    try { info = await anilistMediaInfo(anilistId); } catch { /* fallback below */ }
+    if (info?.idMal) candidates.push({ key: `/stream/mal/${info.idMal}/${episode}/${lang}`, via: 'MAL' });
+  }
 
-  const srcResp = await fetch(`${MEGAP_BASE}/stream/getSourcesNew?id=${dataId}`, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Referer': MEGAP_REFERER,
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json, text/javascript, */*; q=0.01',
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!srcResp.ok) throw new Error(`megaplay sources returned ${srcResp.status}`);
-  const data = await srcResp.json();
-  if (!data?.sources?.file) throw new Error('megaplay returned no stream file');
-  return {
-    m3u8Url: data.sources.file,
-    referer: MEGAP_REFERER,
-    tracks: data.tracks || [],
-    intro: data.intro || null,
-    outro: data.outro || null,
-    dataId,
-  };
+  for (const candidate of candidates) {
+    try {
+      const pageResp = await fetch(`${MEGAP_BASE}${candidate.key}`, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Referer': MEGAP_PAGE_REFERER,
+          'Accept': 'text/html,application/xhtml+xml,*/*',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!pageResp.ok) continue;
+      const html = await pageResp.text();
+      const dataId = (html.match(/data-id="(\d+)"/) || [])[1];
+      if (!dataId) continue;
+
+      const srcResp = await fetch(`${MEGAP_BASE}/stream/getSourcesNew?id=${dataId}`, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Referer': MEGAP_REFERER,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!srcResp.ok) continue;
+      const data = await srcResp.json();
+      if (!data?.sources?.file) continue;
+      return {
+        m3u8Url: data.sources.file,
+        referer: MEGAP_REFERER,
+        tracks: data.tracks || [],
+        intro: data.intro || null,
+        outro: data.outro || null,
+        dataId,
+        via: candidate.via,
+      };
+    } catch { /* try the next mapping */ }
+  }
+  throw new Error('megaplay embed not synced for this anime/episode');
 }
 
 // Resolve a kotocdn-family / inline-HLS embed URL into a real HLS stream.
@@ -1658,17 +1681,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ========== ROUTE: /api/megap/stream (megaplay.buzz HLS for an episode) ==========
+    // source=ani (default, MEGA PLAY) uses the AniList mapping with an automatic
+    // MAL fallback; source=mal (MEGA CLUB) uses the MAL mapping directly.
     if (reqUrl.pathname === '/api/megap/stream') {
       const anilistId = reqUrl.searchParams.get('anilistId');
       const episode = parseInt(reqUrl.searchParams.get('episode') || '', 10);
       const lang = reqUrl.searchParams.get('lang') || 'sub';
+      const source = reqUrl.searchParams.get('source') || 'ani';
       if (!anilistId || isNaN(episode)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Missing anilistId and/or episode' }));
       }
       try {
-        const stream = await megapStream(anilistId, episode, lang);
-        log(req.method, reqUrl.pathname + reqUrl.search, 200, '[MEGAP]');
+        const stream = await megapStream(anilistId, episode, lang, source);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[MEGAP:${source}] via=${stream.via || '?'}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(stream));
       } catch (err) {
