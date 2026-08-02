@@ -11,8 +11,19 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && python3 -m pip install --break-system-packages --no-cache-dir --upgrade pip \
  && python3 -m pip install --break-system-packages --no-cache-dir --only-binary=:all: curl_cffi \
- && python3 -m pip install --break-system-packages --no-cache-dir playwright \
- && (python3 -m playwright install --with-deps chromium \
+ && python3 -m pip install --break-system-packages --no-cache-dir playwright
+
+# Chromium install is split out so a failure can never fail the deploy.
+# We prefer the lean headless shell (`--only-shell`) which is ~40% smaller
+# and stays under Render's free-tier 512MB disk/RAM; it's all Chromium's
+# headless mode needs. Each step degrades gracefully:
+#   deps fail  -> browser may still run (falls back at runtime if not)
+#   shell fail -> try the full chromium download
+#   that fails -> sidecar falls back to curl_cffi at runtime
+RUN (python3 -m playwright install-deps chromium \
+     || echo "WARNING: playwright deps failed; trying without deps") \
+ && (python3 -m playwright install chromium --only-shell \
+     || python3 -m playwright install chromium \
      || echo "WARNING: playwright chromium install failed; sidecar will fall back to curl_cffi")
 
 WORKDIR /app

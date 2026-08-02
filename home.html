@@ -706,9 +706,6 @@
                                 <div id="search-toggler">
                                     <i class="fas fa-search"></i>
                                 </div>
-                                <div id="user">
-                                    <div class="placeholder" title="Sign in"><i class="fa-solid fa-user"></i></div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1566,7 +1563,6 @@
                                     </section>
                                 </div>
                             </div>
-                            <div id="schedule-block"></div>
                         </aside>
                         <aside class="sidebar">
                             <section id="top-anime">
@@ -2334,138 +2330,6 @@
                 </div>
             </footer>
         </div>
-        <div class="modal fade" id="sign" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered with-image contents">
-                <div data-content="login" class="modal-content login">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Login</h5>
-                        <button type="button" class="close" data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-gray2">Welcome back!</p>
-                        <form method="post" accept-charset="utf-8" class="ajax-login" id="ajax-login" data-broadcast="user:updated" action="/auth/ajax/login">
-                            <div style="display:none;">
-                                <input type="hidden" name="_method" value="POST"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-circle-user"></i>
-                                <input type="text" name="username" class="form-control form-control-lg" placeholder="Username or email" required="required" id="username"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-lock"></i>
-                                <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" required="required" id="password"/>
-                            </div>
-                            <div class="form-group row justify-content-end">
-                                <div class="col-auto">
-                                    <input type="hidden" name="remember_me" value="0"/>
-                                    <input type="checkbox" name="remember_me" value="1" class="custom-control-input" id="remember">
-                                    <label class="custom-control-label" for="remember">Remember me</label>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <a href="#" class="btn clear" data-content-switch="forgot">Forgot password</a>
-                            </div>
-                            <div class="form-group">
-                                <span class="captcha"></span>
-                            </div>
-                            <div class="form-group">
-                                <button class="btn btn-lg fw-bold btn-primary w-100" type="submit">Login</button>
-                            </div>
-                        </form>
-                        <div class="form-group">
-                            <div class="desi-buttons">
-                                <form name="post_6a6037309aed9067061050" style="display:none;" method="post" action="/social-auth/login/google">
-                                    <input type="hidden" name="_method" value="POST"/>
-                                </form>
-                                <a href="#" class="btn btn-slide-read mr-2" style="background-color: #d51c20; color: #ffffff !important;" onclick="document.post_6a6037309aed9067061050.submit(); event.returnValue = false; return false;">
-                                    <i class="fab fa-google"></i>
-                                    Google
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <span class="text-gray2">
-                            Don't have an account? <a href="#" data-content-switch="register">Register</a>
-                        </span>
-                    </div>
-                </div>
-                <div data-content="register" class="modal-content register" style="display: none">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Register</h5>
-                        <button type="button" class="close" data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-gray2">Create an account to use full range of functions..</p>
-                        <form method="post" accept-charset="utf-8" id="register-form" class="ajax-register" data-broadcast="user:updated" action="/auth/ajax/register">
-                            <div style="display:none;">
-                                <input type="hidden" name="_method" value="POST"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-envelope"></i>
-                                <input type="email" name="email" class="form-control form-control-lg" placeholder="Email" required="required" id="email"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-circle-user"></i>
-                                <input type="text" name="username" class="form-control form-control-lg" placeholder="Username" required="required" id="username"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-lock"></i>
-                                <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" required="required" id="pass"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-lock"></i>
-                                <input type="password" name="password_compare" class="form-control form-control-lg" placeholder="Password confirmation" required="required" id="password-compare"/>
-                            </div>
-                            <div class="form-group">
-                                <span class="captcha"></span>
-                            </div>
-                            <div class="form-group">
-                                <button class="btn btn-lg fw-bold btn-primary w-100" type="submit">Register</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <span class="text-gray2">
-                            Already have an account? <a href="#" data-content-switch="login">Sign in</a>
-                        </span>
-                    </div>
-                </div>
-                <div data-content="forgot" class="modal-content forgot" style="display: none;">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Forgot password</h5>
-                        <button type="button" class="close" data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-gray2">We will send an email to your box, just follow that link to set your new password.</p>
-                        <form method="post" accept-charset="utf-8" class="ajax" id="forgot-form" action="/auth/ajax/reset-password">
-                            <div style="display:none;">
-                                <input type="hidden" name="_method" value="POST"/>
-                            </div>
-                            <div class="form-group">
-                                <i class="icon fa-solid fa-envelope"></i>
-                                <input type="email" name="email" class="form-control form-control-lg" placeholder="Email" id="email"/>
-                            </div>
-                            <div class="form-group">
-                                <span class="captcha"></span>
-                            </div>
-                            <div class="form-group">
-                                <button class="btn btn-lg fw-bold btn-primary w-100" type="submit">Submit</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <a href="#" class="btn clear" data-content-switch="login">Back to sign in</a>
-                    </div>
-                </div>
-            </div>
-        </div>
         <svg class="d-none">
             <symbol id="icon-search-shortcut" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27.47 26.875">
                 <path d="M1599.25,69.947h-15.1a6.165,6.165,0,0,0-6.18,6.14V90.66a6.165,6.165,0,0,0,6.18,6.14h15.1a6.165,6.165,0,0,0,6.18-6.14V76.086A6.165,6.165,0,0,0,1599.25,69.947Zm-19.45,6.14a4.339,4.339,0,0,1,4.35-4.32h15.1a4.339,4.339,0,0,1,4.35,4.32v10.74a4.339,4.339,0,0,1-4.35,4.32h-15.1a4.339,4.339,0,0,1-4.35-4.32V76.086Zm19.45,18.894h-15.1a4.343,4.343,0,0,1-4.31-3.76,6.184,6.184,0,0,0,4.31,1.745h15.1a6.183,6.183,0,0,0,4.31-1.746A4.344,4.344,0,0,1,1599.25,94.98Zm-5.88-10.235a2.583,2.583,0,0,1-1.47.316,6.074,6.074,0,0,1-1.36-.154,4.726,4.726,0,0,1-1.27-.477,0.9,0.9,0,0,0-.61-0.1,0.8,0.8,0,0,0-.46.281,1.1,1.1,0,0,0-.21.5,1.077,1.077,0,0,0,.09.555,1.04,1.04,0,0,0,.44.443,4.778,4.778,0,0,0,1,.421,8.131,8.131,0,0,0,1.17.26,8.276,8.276,0,0,0,1.21.091,6.022,6.022,0,0,0,1.68-.218,3.934,3.934,0,0,0,1.29-.625,2.715,2.715,0,0,0,.81-0.976,2.8,2.8,0,0,0,.29-1.27,2.291,2.291,0,0,0-.68-1.721,4.177,4.177,0,0,0-2.06-.948l-1.6-.337a2.4,2.4,0,0,1-1.03-.407,0.821,0.821,0,0,1-.3-0.66,1.06,1.06,0,0,1,.22-0.646,1.427,1.427,0,0,1,.64-0.436,2.88,2.88,0,0,1,1.01-.154,5.169,5.169,0,0,1,1.07.112,4.012,4.012,0,0,1,.99.351,1.033,1.033,0,0,0,.65.127,0.761,0.761,0,0,0,.44-0.253,0.881,0.881,0,0,0,.22-0.457,1.042,1.042,0,0,0-.07-0.519,0.884,0.884,0,0,0-.39-0.428,4.7,4.7,0,0,0-1.34-.555,6.476,6.476,0,0,0-1.56-.19,5.609,5.609,0,0,0-1.63.225,3.932,3.932,0,0,0-1.28.646,3.01,3.01,0,0,0-.83,1,2.729,2.729,0,0,0-.3,1.278,2.465,2.465,0,0,0,.66,1.791,3.812,3.812,0,0,0,2.01.962l1.6,0.337a2.767,2.767,0,0,1,1.08.408,0.772,0.772,0,0,1,.32.646A0.954,0.954,0,0,1,1593.37,84.745Z" transform="translate(-1577.97 -69.938)"></path>
@@ -2595,7 +2459,7 @@
             });
         </script>
         <script>
-            // ============ SITE HEADER INTERACTIONS (anikaitv-style) ============
+            // ============ SITE HEADER INTERACTIONS ============
             (function () {
                 const menu = document.getElementById('menu');
                 const toggler = document.getElementById('menu-toggler');
@@ -2686,9 +2550,8 @@
                     });
                 })();
 
-                // Recently Updated tabs are handled by the live anikaitv widget
-                // loader (see ANIKAITV WIDGETS script) — it fetches real widget
-                // data per tab instead of filtering the static snapshot.
+                // Recently Updated content is rendered by loadHomeContent from the
+                // AniList feed; the Random tab is wired below.
 
                 // Continue Watching widget (localStorage-backed)
                 (function () {
@@ -2813,10 +2676,8 @@
                     const data = await res.json();
                     if (!data) throw new Error('No data');
 
-                    // Use AniList data as the primary source (it's always available)
-                    // Fall back to anikaitv widget data if available
+                    // AniList is the only feed source now
                     const items = data.anilist || [];
-                    const anikai = data.anikai || {};
 
                     if (!items.length) return; // keep static fallback
 
@@ -2979,165 +2840,20 @@
             })();
         </script>
         <script>
-            // ============ ANIKAITV WIDGETS (live schedule + recent update) ============
-            // Mirrors the real animekaitv.to homepage behaviour: the schedule
-            // block and the "Recently Updated" tabs are populated from the
-            // /ajax/ endpoints (proxied through this server), so they stay live.
+            // ============ RANDOM TAB ============
             (function () {
-                const rewriteLinks = (html) => html.replace(/https:\/\/anikaitv\.to\//g, '/');
-
-                // ---- Schedule block (#schedule-block) ----
-                async function loadSchedule() {
-                    const block = document.getElementById('schedule-block');
-                    if (!block) return;
-                    const tz = -(new Date().getTimezoneOffset() / 60);
-                    try {
-                        const res = await fetch('/ajax/schedule?tz=' + encodeURIComponent(tz), {
-                            headers: { 'Accept': 'application/json' },
-                        });
-                        const data = await res.json();
-                        if (!data || data.status !== 200 || !data.result) throw new Error('empty schedule result');
-                        block.innerHTML = rewriteLinks(data.result);
-                        initSchedule(block, tz);
-                    } catch (err) {
-                        console.warn('[Schedule] could not load live schedule:', err.message);
-                    }
-                }
-
-                function initSchedule(block, tz) {
-                    const body = block.querySelector('.body');
-                    const dayTabs = block.querySelectorAll('.items .day .inner');
-                    const nowEl = block.querySelector('.timenow');
-                    const more = block.querySelector('.more');
-
-                    const bindMore = (btn, target) => {
-                        if (btn && target) btn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            target.classList.toggle('expand');
-                        });
-                    };
-                    bindMore(more, body);
-
-                    if (nowEl) {
-                        const tick = () => {
-                            const d = new Date();
-                            nowEl.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
-                        };
-                        tick();
-                        setInterval(tick, 1000);
-                    }
-
-                    dayTabs.forEach(tab => {
-                        tab.addEventListener('click', async () => {
-                            dayTabs.forEach(x => x.closest('.day') && x.closest('.day').classList.remove('active'));
-                            const dayEl = tab.closest('.day');
-                            if (dayEl) dayEl.classList.add('active');
-                            const time = tab.dataset.time;
-                            if (!time || !body) return;
-                            body.style.opacity = '0.5';
-                            try {
-                                const res = await fetch('/ajax/schedule/date?tz=' + encodeURIComponent(tz) + '&time=' + encodeURIComponent(time), {
-                                    headers: { 'Accept': 'application/json' },
-                                });
-                                const data = await res.json();
-                                if (data && data.status === 200 && data.result) {
-                                    body.innerHTML = rewriteLinks(data.result);
-                                    bindMore(body.querySelector('.more'), body);
-                                }
-                            } catch (err) {
-                                console.warn('[Schedule] day load failed:', err.message);
-                            } finally {
-                                body.style.opacity = '';
-                            }
-                        });
+                const section = document.getElementById('recent-update');
+                if (!section) return;
+                const head = section.querySelector('.head');
+                if (!head) return;
+                head.querySelectorAll('.tab[data-name]').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const name = tab.dataset.name;
+                        if (name === 'random') { window.location.href = '/random'; return; }
+                        head.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
                     });
-
-                    if (typeof Swiper !== 'undefined') {
-                        try {
-                            new Swiper(block.querySelector('.swiper-container'), {
-                                slidesPerView: 'auto',
-                                spaceBetween: 0,
-                                navigation: {
-                                    nextEl: block.querySelector('.next'),
-                                    prevEl: block.querySelector('.prev'),
-                                },
-                            });
-                        } catch (err) { /* swiper init is optional */ }
-                    }
-                }
-
-                // ---- "Recently Updated" widget (#recent-update) ----
-                function initRecentUpdate() {
-                    const section = document.getElementById('recent-update');
-                    if (!section) return;
-                    const head = section.querySelector('.head');
-                    const body = section.querySelector('.body');
-                    const tabs = head ? head.querySelectorAll('.tab[data-name]') : [];
-                    if (!body || !tabs.length) return;
-
-                    let currentTab = 'updated-all';
-                    let page = 1;
-
-                    const setDisabled = () => {
-                        const prev = head.querySelector('.paging .prev');
-                        if (prev) prev.classList.toggle('disabled', page <= 1);
-                    };
-
-                    async function load(tab, pg) {
-                        currentTab = tab;
-                        page = pg;
-                        setDisabled();
-                        body.style.opacity = '0.5';
-                        try {
-                            const res = await fetch('/ajax/home/widget/' + encodeURIComponent(tab) + '?page=' + pg, {
-                                headers: { 'Accept': 'application/json' },
-                            });
-                            const data = await res.json();
-                            if (data && data.status === 200 && data.result) {
-                                body.innerHTML = rewriteLinks(data.result);
-                            }
-                        } catch (err) {
-                            console.warn('[RecentUpdate] widget load failed:', err.message);
-                        } finally {
-                            body.style.opacity = '';
-                        }
-                    }
-
-                    tabs.forEach(tab => {
-                        tab.addEventListener('click', () => {
-                            const name = tab.dataset.name;
-                            if (name === 'random') { window.location.href = '/random'; return; }
-                            tabs.forEach(t => t.classList.remove('active'));
-                            tab.classList.add('active');
-                            localStorage.setItem('home_recent_update_tab', name);
-                            load(name, 1);
-                        });
-                    });
-
-                    const prev = head.querySelector('.paging .prev');
-                    const next = head.querySelector('.paging .next');
-                    if (prev) prev.addEventListener('click', () => { if (page > 1) load(currentTab, page - 1); });
-                    if (next) next.addEventListener('click', () => load(currentTab, page + 1));
-
-                    const saved = localStorage.getItem('home_recent_update_tab');
-                    const target = (saved && saved !== 'updated-all') ? saved : 'updated-all';
-                    const activeTab = Array.from(tabs).find(t => t.dataset.name === target);
-                    if (activeTab) {
-                        tabs.forEach(t => t.classList.remove('active'));
-                        activeTab.classList.add('active');
-                    }
-                    load(target, 1);
-                }
-
-                function start() {
-                    loadSchedule();
-                    initRecentUpdate();
-                }
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', start);
-                } else {
-                    start();
-                }
+                });
             })();
         </script>
         <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"7ca8784e55d845f68cf1e561f0876a30","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

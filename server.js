@@ -9,7 +9,6 @@ const zlib = require('zlib');
 // ========================
 const PORT = process.env.PORT || 3000;
 const ROOT = process.cwd();
-const TARGET_BASE = 'https://anikaitv.to';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
 // Optional access protection: if ACCESS_TOKEN is set, every page/API requires
@@ -417,7 +416,9 @@ const miruroEmbedsCache = new Map();
 //    data-id that resolves via /stream/getSourcesNew.
 //  - vivibebe.site and krussdomi.com declare their m3u8 directly in the embed
 //    page markup/JSON, so they play without the miruro pipe at all.
-const EMBED_HLS_HOSTS = ['vidtube.site', 'megaplay.buzz', 'vivibebe.site', 'krussdomi.com'];
+//  - vidplay.* hosts resolve through their /api/source/{id} endpoint.
+const VIDPLAY_HOSTS = ['vidplay.online', 'vidplay.site', 'vidplay.lol', 'vidplay.net', 'vidplay.pro', 'vidplay.io', 'vidplay.cc', 'vidplay.events'];
+const EMBED_HLS_HOSTS = ['vidtube.site', 'megaplay.buzz', 'vivibebe.site', 'krussdomi.com', ...VIDPLAY_HOSTS];
 
 // Retry a flaky miruro pipe call (the sources endpoint is rate-limited and
 // intermittently returns 444/upstream-unreachable from a cold IP).
@@ -491,8 +492,8 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
   return result;
 }
 
-// Map an anikaitv slug (e.g. "one-piece-odmau") to an AniList ID by
-// searching AniList with progressively shorter title candidates.
+// Map a URL slug (e.g. "one-piece-odmau") to an AniList ID by searching
+// AniList with progressively shorter title candidates.
 const anilistResolveCache = new Map();
 
 function slugToTitles(slug) {
@@ -651,6 +652,15 @@ async function resolveAnilistId(slug) {
   return best;
 }
 
+// Prune the resolve cache so a long-running instance can't grow unbounded —
+// every entry holds the full AniList info object. FIFO cap keeps it small.
+setInterval(() => {
+  const keys = [...anilistResolveCache.keys()];
+  if (keys.length <= 400) return;
+  const drop = keys.slice(0, keys.length - 300);
+  drop.forEach((k) => anilistResolveCache.delete(k));
+}, 60 * 60 * 1000);
+
 // ========================
 // STATIC FILE SERVING
 // ========================
@@ -731,120 +741,6 @@ async function serveStatic(reqUrl, res, req) {
 }
 
 // ========================
-// REVERSE PROXY TO ANIKAITV.TO
-// ========================
-async function proxyToAnikai(reqUrl, res, req, bodyBuffer) {
-  // Build the target URL
-  const targetPath = reqUrl.pathname + (reqUrl.search || '');
-  const targetUrl = `${TARGET_BASE}${targetPath}`;
-
-  // Build headers for proxied request
-  const headers = {
-    'User-Agent': USER_AGENT,
-    'Accept': req.headers['accept'] || '*/*',
-    'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9',
-    'Referer': `${TARGET_BASE}/`,
-    'Origin': TARGET_BASE,
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-  };
-
-  // AnimeKai's ajax endpoints reject requests without X-Requested-With
-  // (they answer 500 "Invalid Request"). Send it for every ajax call.
-  if (reqUrl.pathname.startsWith('/ajax/')) {
-    headers['X-Requested-With'] = 'XMLHttpRequest';
-  }
-
-  // Forward cookies if present
-  if (req.headers['cookie']) {
-    headers['Cookie'] = req.headers['cookie'];
-  }
-
-  // Forward content-type for POST/PUT requests
-  if (bodyBuffer && bodyBuffer.length > 0) {
-    headers['Content-Type'] = req.headers['content-type'] || 'application/x-www-form-urlencoded';
-    headers['Content-Length'] = bodyBuffer.length;
-    headers['X-Requested-With'] = 'XMLHttpRequest';
-  }
-
-  try {
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers: headers,
-      body: bodyBuffer && bodyBuffer.length > 0 ? bodyBuffer : undefined,
-      redirect: 'manual', // Handle redirects manually
-      signal: AbortSignal.timeout(30000), // 30s timeout
-    });
-
-    // Get response data
-    const body = await response.arrayBuffer();
-
-    // Build response headers
-    const proxyOrigin = req.headers['origin'];
-    const resHeaders = {
-      'Access-Control-Allow-Origin': proxyOrigin || '*',
-    };
-    if (proxyOrigin) {
-      resHeaders['Vary'] = 'Origin';
-      resHeaders['Access-Control-Allow-Credentials'] = 'true';
-    }
-    resHeaders['Access-Control-Expose-Headers'] = 'Set-Cookie';
-
-    // Forward important response headers
-    const forwardHeaders = [
-      'content-type', 'content-length', 'set-cookie', 'cache-control',
-      'x-robots-tag', 'x-frame-options', 'content-security-policy',
-    ];
-    for (const h of forwardHeaders) {
-      const val = response.headers.get(h);
-      if (val) {
-        // Combine multiple Set-Cookie headers
-        if (h === 'set-cookie') {
-          resHeaders['Set-Cookie'] = val;
-        } else {
-          resHeaders[h] = val;
-        }
-      }
-    }
-
-    // Handle redirects
-    const location = response.headers.get('location');
-    if (location && (response.status === 301 || response.status === 302 || response.status === 307 || response.status === 308)) {
-      // Rewrite redirect URL if it points to anikaitv.to
-      let redirectUrl = location;
-      if (redirectUrl.startsWith(TARGET_BASE)) {
-        redirectUrl = redirectUrl.replace(TARGET_BASE, '');
-      }
-      resHeaders['Location'] = redirectUrl;
-    }
-
-    // Add compression if applicable
-    if (shouldCompress(res, req) && body.byteLength > 1024) {
-      const compressed = zlib.gzipSync(Buffer.from(body));
-      resHeaders['Content-Encoding'] = 'gzip';
-      resHeaders['Content-Length'] = compressed.length;
-      delete resHeaders['content-length'];
-
-      res.writeHead(response.status, resHeaders);
-      return res.end(compressed);
-    }
-
-    res.writeHead(response.status, resHeaders);
-    res.end(Buffer.from(body));
-  } catch (err) {
-    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      log('TIMEOUT', targetPath, 504);
-      res.writeHead(504, { 'Content-Type': 'text/plain' });
-      return res.end('Upstream server timed out');
-    }
-
-    log('PROXY_ERR', targetPath, 502, err.message);
-    res.writeHead(502, { 'Content-Type': 'text/plain' });
-    res.end('Proxy error: ' + err.message);
-  }
-}
-
-// ========================
 // GENERIC URL PROXY (for /proxy)
 // ========================
 async function handleGenericProxy(reqUrl, res, req) {
@@ -864,7 +760,6 @@ async function handleGenericProxy(reqUrl, res, req) {
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/json,*/*',
-        'Referer': 'https://anikaitv.to/',
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(20000),
@@ -941,23 +836,24 @@ async function handleVideoProxy(reqUrl, res, req) {
   }
 
   try {
-    // Allow callers to specify the Referer/Origin (e.g. miruro streams)
+    // Allow callers to specify the Referer/Origin (e.g. miruro/vidplay streams)
     const refererOverride = reqUrl.searchParams.get('referer');
-    let referer = refererOverride || 'https://anikaitv.to/';
-    let origin = refererOverride ? new URL(refererOverride).origin : 'https://anikaitv.to';
+    const referer = refererOverride || '';
+    const origin = refererOverride ? new URL(refererOverride).origin : '';
+    const requestHeaders = {
+      'User-Agent': USER_AGENT,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Sec-Fetch-Dest': 'iframe',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'cross-site',
+      'Upgrade-Insecure-Requests': '1',
+    };
+    if (referer) requestHeaders['Referer'] = referer;
+    if (origin) requestHeaders['Origin'] = origin;
 
     const response = await fetch(target, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': referer,
-        'Origin': origin,
-        'Sec-Fetch-Dest': 'iframe',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'cross-site',
-        'Upgrade-Insecure-Requests': '1',
-      },
+      headers: requestHeaders,
       redirect: 'manual', // Handle redirects manually
       signal: AbortSignal.timeout(30000),
     });
@@ -1138,12 +1034,62 @@ function extractInlineHls(html) {
   return null;
 }
 
+// ========================
+// VIDPLAY (vidplay.*) STREAM RESOLVER
+// VidPlay hosts (used by many anime aggregators) expose a tiny JSON API:
+// POST {origin}/api/source/{id} -> { status, sources: [{ file, type: 'hls' }],
+// tracks: [...] }. The embed URL is {origin}/e/{id}. Some mirrors require a
+// plain GET instead of POST, so we try both. The resulting HLS plays through
+// the player with the embed origin as Referer.
+// ========================
+async function vidplayToHls(embedUrl, base, referer) {
+  const id = String(embedUrl.split('/').pop().split('?')[0]);
+  if (!id) throw new Error('vidplay: could not extract id from embed url');
+  const apiUrl = `${base}/api/source/${id}`;
+  const headers = {
+    'User-Agent': USER_AGENT,
+    'Referer': base + '/',
+    'Origin': base,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json, text/javascript, */*; q=0.01',
+  };
+  let resp = await fetch(apiUrl, { method: 'POST', headers, signal: AbortSignal.timeout(30000) });
+  if (!resp.ok) resp = await fetch(apiUrl, { method: 'GET', headers, signal: AbortSignal.timeout(30000) });
+  if (!resp.ok) throw new Error(`vidplay sources returned ${resp.status}`);
+  const data = await resp.json();
+  const sources = data.sources || [];
+  const src = sources.find((s) => s.file && /\.m3u8/i.test(s.file)) || sources[0];
+  if (!src || !src.file) throw new Error('vidplay returned no stream file');
+  return {
+    m3u8Url: src.file,
+    referer,
+    tracks: (data.tracks || []).filter((t) => t.file).map((t) => ({
+      lang: t.lang || t.label || 'en',
+      label: t.label || t.lang || 'Subtitles',
+      file: t.file,
+      default: !!t.default,
+    })),
+    intro: null,
+    outro: null,
+    embedUrl,
+  };
+}
+
 async function embedToHls(embedUrl) {
   if (embedStreamCache.has(embedUrl)) return embedStreamCache.get(embedUrl);
 
   const pageUrl = new URL(embedUrl);
   const base = pageUrl.origin;
   const referer = base + '/';
+
+  // VidPlay resolves directly through its JSON API — skip the page fetch.
+  if (VIDPLAY_HOSTS.includes(pageUrl.hostname)) {
+    const result = await vidplayToHls(embedUrl, base, referer);
+    embedStreamCache.set(embedUrl, result);
+    setTimeout(() => embedStreamCache.delete(embedUrl), 10 * 60 * 1000);
+    return result;
+  }
+
   const pageResp = await fetch(embedUrl, {
     headers: {
       'User-Agent': USER_AGENT,
@@ -1362,25 +1308,6 @@ async function anilistHomeFeed() {
   return json?.data?.Page?.media || [];
 }
 
-// Also try to fetch the anikaitv.to home page widgets directly
-async function anikaiHomeWidget(widgetName, page = 1) {
-  try {
-    const response = await fetch(`${TARGET_BASE}/ajax/home/widget/${widgetName}?page=${page}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Referer': `${TARGET_BASE}/`,
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (response.status !== 200) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
 // Format AniList media for homepage display
 function formatAnilistForHome(media) {
   const title = media.title?.english || media.title?.romaji || media.title?.native || 'Unknown';
@@ -1502,43 +1429,22 @@ const server = http.createServer(async (req, res) => {
       }));
     }
 
-// ========== ROUTE: /api/home/recently-released (AniList + anikaitv.to fallback) ==========
+// ========== ROUTE: /api/home/recently-released (AniList) ==========
     if (reqUrl.pathname === '/api/home/recently-released') {
       try {
-        // Try anikaitv.to first for each widget
-        const [updated, releases, added, completed] = await Promise.allSettled([
-          anikaiHomeWidget('updated-all', 1),
-          anikaiHomeWidget('latest-releases', 1),
-          anikaiHomeWidget('recently-added', 1),
-          anikaiHomeWidget('newly-completed', 1),
-        ]);
-
-        const anikaiData = {
-          updated: updated.status === 'fulfilled' && updated.value ? updated.value : null,
-          releases: releases.status === 'fulfilled' && releases.value ? releases.value : null,
-          added: added.status === 'fulfilled' && added.value ? added.value : null,
-          completed: completed.status === 'fulfilled' && completed.value ? completed.value : null,
-        };
-
-        // Also fetch from AniList as a fallback / enrichment
-        let anilistMedia = [];
-        try {
-          anilistMedia = await anilistHomeFeed();
-        } catch { /* anilist optional */ }
-
+        const anilistMedia = await anilistHomeFeed();
         const formatted = anilistMedia.map(formatAnilistForHome);
 
-        log(req.method, reqUrl.pathname, 200, `[HOME] anikaitv=${anikaiData.updated ? 'ok' : 'fail'} anilist=${formatted.length}`);
+        log(req.method, reqUrl.pathname, 200, `[HOME] anilist=${formatted.length}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({
-          anikai: anikaiData,
           anilist: formatted,
           timestamp: new Date().toISOString(),
         }));
       } catch (err) {
         log('HOME_FEED_ERR', reqUrl.pathname, 502, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: err.message, anikai: {}, anilist: [] }));
+        return res.end(JSON.stringify({ error: err.message, anilist: [] }));
       }
     }
 
@@ -1849,20 +1755,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ========== ROUTE: Proxy API calls to anikaitv.to ==========
-    const proxyPaths = ['/ajax/', '/auth/', '/social-auth/'];
-    const shouldProxy = proxyPaths.some(p => reqUrl.pathname.startsWith(p));
-
-    if (shouldProxy) {
-      let bodyBuffer = null;
-      if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
-        bodyBuffer = await getRequestBody(req);
-      }
-
-      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[PROXY→${TARGET_BASE}]`);
-      return proxyToAnikai(reqUrl, res, req, bodyBuffer);
-    }
-
     // ========== ROUTE: Static files ==========
     log(req.method, reqUrl.pathname, 200, `[STATIC] ${(Date.now() - startTime).toFixed(0)}ms`);
     return serveStatic(reqUrl, res, req);
@@ -1947,7 +1839,6 @@ server.listen(PORT, () => {
   console.log('║      🎌 AnimeKai - Backend Server 🎌       ║');
   console.log('╠════════════════════════════════════════════╣');
   console.log(`║  Local:    \x1b[4mhttp://localhost:${PORT}/\x1b[0m\x1b[36m          ║`);
-  console.log(`║  Proxying: \x1b[4m${TARGET_BASE}\x1b[0m\x1b[36m           ║`);
   console.log('╚════════════════════════════════════════════╝');
   console.log('\x1b[0m');
   console.log('Routes:');
@@ -1955,12 +1846,9 @@ server.listen(PORT, () => {
   console.log('  \x1b[32mGET\x1b[0m  /home           → home.html');
   console.log('  \x1b[32mGET\x1b[0m  /watch?slug=... → watch.html');
   console.log('  \x1b[32mGET\x1b[0m  /player?url=... → player.html');
-  console.log('  \x1b[33mANY\x1b[0m  /ajax/*         → proxied to anikaitv.to');
-  console.log('  \x1b[33mANY\x1b[0m  /auth/*         → proxied to anikaitv.to');
-  console.log('  \x1b[33mANY\x1b[0m  /social-auth/*  → proxied to anikaitv.to');
   console.log('  \x1b[32mGET\x1b[0m  /proxy?url=...  → generic URL proxy');
   console.log('  \x1b[32mGET\x1b[0m  /proxy-video?url=...  → video/embed proxy (strips X-Frame-Options)');
-  console.log('  \x1b[32mGET\x1b[0m  /api/miruro/resolve?slug=...   → anikaitv slug → AniList ID');
+  console.log('  \x1b[32mGET\x1b[0m  /api/miruro/resolve?slug=...   → slug → AniList ID');
   console.log('  \x1b[32mGET\x1b[0m  /api/miruro/servers?anilistId=&episode=  → miruro providers');
   console.log('  \x1b[32mGET\x1b[0m  /api/miruro/stream?anilistId=&provider=&category=&episode= → HLS sources');
   console.log('  \x1b[32mGET\x1b[0m  /health         → health check');

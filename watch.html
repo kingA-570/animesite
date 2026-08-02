@@ -36,35 +36,6 @@
         @media (max-width: 1100px) {
             .watch-wrapper[data-theater-mode="true"] .ep-sidebar { flex-direction: column; }
         }
-        @media (max-width: 768px) {
-            .watch-container { padding: 12px; }
-            .watch-header { gap: 10px; margin-bottom: 14px; }
-            .watch-header h1 { font-size: 1.05rem; }
-            #controls-bar { padding: 5px; gap: 4px; }
-            .current-episode-info { margin: 0 6px; }
-            .current-episode-name { max-width: 40vw; font-size: 0.78rem; }
-            .ctrl { padding: 6px 8px; font-size: 0.72rem; }
-            .ctrl.check label { font-size: 0.68rem; }
-            .controls-right { gap: 4px; flex-wrap: wrap; }
-            .ctrl.check { padding: 4px 6px 4px 8px; }
-            #player-wrapper { border-radius: 10px; }
-            .info-sidebar { display: flex; align-items: stretch; }
-            .info-sidebar .poster-wrap { width: 104px; aspect-ratio: auto; flex-shrink: 0; }
-            .info-sidebar .info-body { flex: 1; min-width: 0; padding: 12px; }
-            .ep-toolbar { gap: 0.4rem; }
-            .ep-range-select { max-width: 100%; }
-        }
-        @media (max-width: 560px) {
-            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); }
-            .current-episode-name { max-width: 36vw; }
-            .ep-sidebar { gap: 12px; }
-            .ctrl.check { padding: 4px; }
-            .ctrl.check input[type="checkbox"] { width: 26px; height: 15px; }
-            .ctrl.check input[type="checkbox"]::after { top: 1.5px; left: 1.5px; width: 12px; height: 12px; }
-            .ctrl.check input[type="checkbox"]:checked::after { transform: translateX(11px); }
-            .ctrl.check label { font-size: 0.62rem; }
-        }
-
         /* Player Wrapper */
         #player-wrapper {
             position: relative; width: 100%; aspect-ratio: 16/9; background: #000;
@@ -123,6 +94,8 @@
         .ctrl.expand.on { color: #e45f3a; }
         .ctrl.layout.on { color: #b5a8ff; }
         .ctrl.skiptime { border: none; background: transparent; padding: 0; }
+
+        .controls-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
         .controls-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
@@ -367,6 +340,52 @@
             border: 1px solid var(--c-border);
             border-radius: 6px;
             vertical-align: 1px;
+        }
+
+        /* ============ RESPONSIVE (placed last so they override the base rules) ============ */
+        @media (max-width: 768px) {
+            .watch-container { padding: 12px; }
+            .watch-header { gap: 10px; margin-bottom: 14px; }
+            .watch-header h1 { font-size: 1.05rem; }
+            #controls-bar { padding: 5px; gap: 4px; }
+            .current-episode-info { margin: 0 6px; }
+            .current-episode-name { max-width: 40vw; font-size: 0.78rem; }
+            .ctrl { padding: 6px 8px; font-size: 0.72rem; }
+            .ctrl.check label { font-size: 0.68rem; }
+            .controls-left { gap: 4px; }
+            .controls-right { gap: 4px; flex-wrap: wrap; }
+            .ctrl.check { padding: 4px 6px 4px 8px; }
+            #player-wrapper { border-radius: 10px; }
+            .info-sidebar { display: flex; align-items: stretch; }
+            .info-sidebar .poster-wrap { width: 104px; aspect-ratio: auto; flex-shrink: 0; }
+            .info-sidebar .info-body { flex: 1; min-width: 0; padding: 12px; }
+            .ep-toolbar { gap: 0.4rem; }
+            .ep-range-select { max-width: 100%; }
+        }
+        @media (max-width: 700px) {
+            /* Miruro-style single-row player menu bar on mobile: the toggles
+               (Auto Play, Auto Skip, Auto Next) sit compactly on the left and
+               prev/next stay on the right; lights/layout hide like miruro does. */
+            #controls-bar { flex-wrap: nowrap; }
+            .controls-left { flex-wrap: nowrap; }
+            .current-episode-info { display: none; }
+            /* Miruro hides the non-essential buttons on mobile; the player.html
+               iframe provides its own fullscreen + skip controls. */
+            .ctrl.light, .ctrl.layout, .ctrl.expand, .ctrl.skiptime { display: none; }
+            .ctrl { padding: 6px 7px; font-size: 0.7rem; }
+            .ctrl.forward { padding: 6px 9px; }
+            .ctrl.check { padding: 4px 6px 4px 8px; }
+            .ctrl.check input[type="checkbox"] { width: 20px; height: 12px; border-radius: 7px; }
+            .ctrl.check input[type="checkbox"]::after { top: 1.5px; left: 1.5px; width: 9px; height: 9px; }
+            .ctrl.check input[type="checkbox"]:checked::after { transform: translateX(8px); }
+            .ctrl.check label { font-size: 0.66rem; }
+        }
+        @media (max-width: 560px) {
+            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); }
+            .current-episode-name { max-width: 36vw; }
+            .ep-sidebar { gap: 12px; }
+            .ctrl.check label { font-size: 0.62rem; }
+            .ctrl { padding: 5px 6px; font-size: 0.66rem; }
         }
     </style>
 </head>
@@ -858,23 +877,19 @@
             <div id="controls-bar">
                 <button class="ctrl forward prev" id="prevEpBtn" title="Previous Episode" onclick="changeEpisode(-1)"><i class="fas fa-chevron-left"></i></button>
 
-                <div class="current-episode-info">
-                    <div class="current-episode-name" id="currentEpName">Episode —</div>
-                    <div class="current-episode-type" id="currentEpType"></div>
-                </div>
-
-                <div class="controls-right">
+                <div class="controls-left">
+                    <div class="ctrl expand" id="ctrlExpand" title="Fullscreen Player" onclick="expandPlayer()"><i class="fas fa-expand"></i></div>
                     <div class="ctrl check" title="Start playing automatically">
                         <input type="checkbox" id="autoPlayChk">
                         <label for="autoPlayChk">Auto Play</label>
                     </div>
-                    <div class="ctrl check" title="Automatically play the next episode">
-                        <input type="checkbox" id="autoNextChk">
-                        <label for="autoNextChk">Auto Next</label>
-                    </div>
                     <div class="ctrl check auto-skip" title="Automatically skip the intro & outro">
                         <input type="checkbox" id="autoSkipChk">
                         <label for="autoSkipChk">Auto Skip</label>
+                    </div>
+                    <div class="ctrl check" title="Automatically play the next episode">
+                        <input type="checkbox" id="autoNextChk">
+                        <label for="autoNextChk">Auto Next</label>
                     </div>
 
                     <div class="ctrl skiptime" id="skipTimeCtrl">
@@ -882,9 +897,16 @@
                         <div class="dropdown-menu" id="skipTimeMenu"></div>
                     </div>
 
-                    <div class="ctrl layout" id="ctrlLayout" title="Toggle Theater Layout" onclick="toggleLayout()"><i class="fas fa-columns"></i></div>
                     <div class="ctrl light" id="ctrlLight" title="Toggle Light Mode" onclick="toggleLight()"><i class="fas fa-sun"></i></div>
-                    <div class="ctrl expand" id="ctrlExpand" title="Fullscreen Player" onclick="expandPlayer()"><i class="fas fa-expand"></i></div>
+                </div>
+
+                <div class="current-episode-info">
+                    <div class="current-episode-name" id="currentEpName">Episode —</div>
+                    <div class="current-episode-type" id="currentEpType"></div>
+                </div>
+
+                <div class="controls-right">
+                    <div class="ctrl layout" id="ctrlLayout" title="Toggle Theater Layout" onclick="toggleLayout()"><i class="fas fa-columns"></i></div>
                 </div>
 
                 <button class="ctrl forward next" id="nextEpBtn" title="Next Episode" onclick="changeEpisode(1)"><i class="fas fa-chevron-right"></i></button>
@@ -896,14 +918,10 @@
                     <span class="ep-count" id="svCount">—</span>
                 </div>
                 <div class="server-body">
-                    <div id="serverList">
-                        <div class="loading-text">Select an episode to see servers</div>
-                    </div>
-                    <div id="miruroList"></div>
                     <div id="megapList"></div>
+                    <div id="miruroList"></div>
                     <div id="embedList"></div>
                     <div id="apipList"></div>
-                    <div id="ytList"></div>
                 </div>
             </div>
 
@@ -993,7 +1011,7 @@ const state = {
     currentEp: null,
     currentSv: null,
     loading: false,
-    epSource: 'anikaitv',
+    epSource: 'miruro',
     anilistId: null,
     miruroServers: [],
     currentMiruro: null,
@@ -1001,7 +1019,7 @@ const state = {
     currentEmbed: null,
     embeds: [],
     aniskip: null,
-    lastSource: null,       // { type: 'megap'|'miruro'|'embed'|'anikaitv', ... } for auto-next resume
+    lastSource: null,       // { type: 'megap'|'miruro'|'embed'|'apiplayer', ... } for auto-next resume
     epView: localStorage.getItem('ak_epView') || 'grid',
     epRanges: [],
     epRange: 0,
@@ -1120,7 +1138,6 @@ const epLayoutBtn = document.getElementById('epLayoutBtn');
 const epCountEl = document.getElementById('epCount');
 const nextEpBanner = document.getElementById('nextEpBanner');
 const nextEpBannerText = document.getElementById('nextEpBannerText');
-const serverList = document.getElementById('serverList');
 const svCountEl = document.getElementById('svCount');
 const pageTitle = document.getElementById('pageTitle');
 const slugInfo = document.getElementById('slugInfo');
@@ -1238,7 +1255,7 @@ if (anilistIdParam) {
         } catch (e) {
             console.error('anilist info failed:', e);
         }
-        await loadMiruroEpisodes('direct anilistId');
+        await loadEpisodes();
     })();
 } else if (!state.slug) {
     pageTitle.textContent = 'No anime specified';
@@ -1249,116 +1266,16 @@ if (anilistIdParam) {
     loadEpisodes();
 }
 
-// ============ CORS-FRIENDLY FETCH ============
-async function fetchWithProxy(url) {
-    let proxyUrl = url;
-    if (url.startsWith('https://anikaitv.to/')) {
-        proxyUrl = url.replace('https://anikaitv.to', '');
-    } else if (url.startsWith('http://') || url.startsWith('https://')) {
-        proxyUrl = getProxyUrl(url);
-    }
-    const resp = await fetch(proxyUrl, {
-        signal: AbortSignal.timeout(15000),
-        headers: { 'Accept': 'text/html,application/json,*/*' }
-    });
-    if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        throw new Error(`Request failed (${resp.status}): ${text.slice(0, 120)}`);
-    }
-    return await resp.text();
-}
-
-function extractHtmlFromResponse(text) {
-    try {
-        const data = JSON.parse(text);
-        if (data && data.result) return data.result;
-        return text;
-    } catch (e) {
-        return text;
-    }
-}
-
 // ============ LOAD EPISODES ============
+// anikaitv is retired — episodes come straight from miruro (via AniList),
+// falling back to a plain AniList episode-count list so MEGA PLAY and the
+// other independent sources still work even if the miruro pipe is down.
 async function loadEpisodes() {
-    const url = `/ajax/episode/list/${state.slug}`;
     episodeGrid.innerHTML = '<div class="loading-text" style="grid-column:1/-1;text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading episodes...</div>';
 
     try {
-        const rawText = await fetchWithProxy(url);
-        const html = extractHtmlFromResponse(rawText);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        const links = doc.querySelectorAll('a[data-slug]');
-        const episodes = [];
-        links.forEach(link => {
-            const slug = link.getAttribute('data-slug') || '';
-            const num = link.getAttribute('data-num') || '';
-            const ids = link.getAttribute('data-ids') || '';
-            const href = link.getAttribute('href') || '';
-            episodes.push({ slug, num, ids, href, title: link.textContent.trim() });
-        });
-
-        const epRanges = doc.querySelectorAll('.ep-range');
-        epRanges.forEach(range => {
-            range.querySelectorAll('a').forEach(link => {
-                const slug = link.getAttribute('data-slug') || '';
-                const num = link.getAttribute('data-num') || '';
-                const ids = link.getAttribute('data-ids') || '';
-                const href = link.getAttribute('href') || '';
-                if (slug && !episodes.find(e => e.slug === slug || e.num === num)) {
-                    episodes.push({ slug, num, ids, href, title: num });
-                }
-            });
-        });
-
-        if (episodes.length === 0) {
-            doc.querySelectorAll('a[data-num]').forEach(link => {
-                const num = link.getAttribute('data-num');
-                const ids = link.getAttribute('data-ids') || link.getAttribute('data-id') || '';
-                if (num && !episodes.find(e => e.num === num)) {
-                    episodes.push({ slug: '', num, ids, href: link.getAttribute('href') || '', title: num });
-                }
-            });
-        }
-
-        if (episodes.length === 0) throw new Error('anikaitv returned no episodes');
-
-        state.episodes = episodes;
-        state.epSource = 'anikaitv';
-        renderEpisodes(episodes);
-
-        try {
-            const jsonData = JSON.parse(rawText);
-            if (jsonData.status === 200 && jsonData.result) {
-                const titleEl = doc.querySelector('.title, h1, .name') || doc.querySelector('[class*="title"]');
-                if (titleEl) {
-                    pageTitle.textContent = titleEl.textContent.trim().substring(0, 60);
-                } else {
-                    pageTitle.textContent = state.slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                }
-            }
-        } catch (jsonErr) {
-            pageTitle.textContent = state.slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        }
-
-        // Resume a specific episode passed via ?ep= (e.g. from Continue Watching)
-        const requestedEp = params.get('ep');
-        const initialEp = requestedEp
-            ? (episodes.find(e => e.num === requestedEp) || episodes[episodes.length - 1])
-            : (episodes[episodes.length - 1] || episodes[0]);
-        if (initialEp) selectEpisode(initialEp.num);
-    } catch (e) {
-        console.error('Failed to load episodes from anikaitv:', e);
-        await loadMiruroEpisodes(e.message);
-    }
-}
-
-async function loadMiruroEpisodes(anikaitvError) {
-    episodeGrid.innerHTML = '<div class="loading-text" style="grid-column:1/-1;text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> anikaitv unavailable — loading miruro episodes...</div>';
-
-    try {
         await resolveAnilist();
+        if (!state.anilistId) throw new Error('Could not resolve AniList id');
         // Don't let a dead miruro pipe stall the page — fall back to AniList
         // episodes after a short timeout so MEGA PLAY still renders.
         const ctrl = new AbortController();
@@ -1384,12 +1301,11 @@ async function loadMiruroEpisodes(anikaitvError) {
         const target = state.episodes.find(e => e.num === requested) || state.episodes[state.episodes.length - 1];
         selectEpisode(target.num);
     } catch (e) {
-        console.error('Miruro fallback failed:', e);
-        // Final fallback: both anikaitv and miruro are down, but we resolved
-        // AniList. Build a numeric episode list from AniList so the MEGA PLAY
-        // servers (which don't depend on anikaitv/miruro) still work. AniList
-        // leaves `episodes` null for ongoing shows, so fall back to the next
-        // airing episode number (aired count = next - 1).
+        console.error('Miruro episodes failed:', e);
+        // Final fallback: miruro is down, but AniList is resolved. Build a
+        // numeric episode list so MEGA PLAY (independent of miruro) works.
+        // AniList leaves `episodes` null for ongoing shows, so fall back to
+        // the next airing episode number (aired count = next - 1).
         const info = state.info || {};
         const nextEp = (info.nextAiringEpisode && info.nextAiringEpisode.episode) || 0;
         let total = info.episodes || (nextEp ? nextEp - 1 : 0);
@@ -1408,7 +1324,7 @@ async function loadMiruroEpisodes(anikaitvError) {
         episodeGrid.innerHTML = `
             <div class="error-msg" style="grid-column:1/-1">
                 <i class="fas fa-exclamation-triangle"></i>
-                <p>Both sources are unavailable right now.</p>
+                <p>Unable to load episodes for this anime.</p>
                 <p style="font-size:0.8rem;color:#4a5270;">${e.message.substring(0, 100)}</p>
                 <button class="retry-btn" onclick="loadEpisodes()"><i class="fas fa-redo"></i> Retry</button>
             </div>
@@ -1604,7 +1520,6 @@ async function selectEpisode(numStr, opts = {}) {
     if (!ep) return;
 
     state.currentEp = ep.num;
-    state.currentSv = null;
     state.currentMiruro = null;
     state.currentMegap = null;
     state.currentEmbed = null;
@@ -1620,44 +1535,27 @@ async function selectEpisode(numStr, opts = {}) {
     saveContinue();
     renderEpisodes(state.episodes);
 
-    serverList.innerHTML = '<div class="loading-text"><i class="fas fa-spinner fa-spin"></i> Loading servers...</div>';
-    document.getElementById('miruroList').innerHTML = '';
-    document.getElementById('megapList').innerHTML = '';
-    document.getElementById('embedList').innerHTML = '';
-    document.getElementById('apipList').innerHTML = '';
-    document.getElementById('ytList').innerHTML = '';
+    ['miruroList', 'megapList', 'embedList', 'apipList'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    });
 
     // Load aniskip data for this episode (miruro mappings) — used by skip buttons
     loadAniskip(ep.num).catch(() => {});
-    void opts;
 
-    if (ep.miruro) {
-        serverList.innerHTML = '<div class="loading-text">anikaitv servers unavailable — using miruro</div>';
-        await loadMiruroOptions(ep, !opts.resume);
-        renderMegapOptions();
-        loadEmbedOptions(ep);
-        renderApiplayerOptions();
-        renderYoutubeOptions();
-        if (opts.resume) {
-            resumeSource();
-        } else if (!state.currentMiruro && !state.currentMegap) {
-            // Neither anikaitv nor miruro produced a playable source (e.g. the
-            // miruro pipe is Cloudflare-blocked on datacenter IPs) — fall back
-            // to MEGA PLAY, which is independent of both.
-            await selectMegapServer('sub');
-        }
-        return;
-    }
-
-    await loadServers(ep);
-    await loadMiruroOptions(ep);
+    // Render every working source list first, then start the best default.
+    // MEGA PLAY (sub) is the default; miruro is only loaded in the background
+    // so a slow/dead pipe never blocks playback. VIDPLAY embeds are the
+    // automatic fallback if MEGA PLAY has no stream for the episode.
+    const miruroPromise = loadMiruroOptions(ep).catch(() => {});
     renderMegapOptions();
     loadEmbedOptions(ep);
     renderApiplayerOptions();
-    renderYoutubeOptions();
+
     if (opts.resume) {
         resumeSource();
-    } else if (!state.currentSv && !state.currentMiruro && !state.currentMegap) {
+        await miruroPromise;
+    } else if (!state.currentMiruro && !state.currentMegap) {
         await selectMegapServer('sub');
     }
 }
@@ -1684,160 +1582,10 @@ async function loadAniskip(epNum) {
     }
 }
 
-// ============ LOAD SERVERS (anikaitv) ============
-async function loadServers(ep) {
-    let ids = ep.ids;
-    if (!ids) {
-        serverList.innerHTML = '<div class="loading-text">No server data available for this episode</div>';
-        return;
-    }
-    const url = `/ajax/server/list?servers=${ids}`;
-
-    try {
-        const rawText = await fetchWithProxy(url);
-        const html = extractHtmlFromResponse(rawText);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        const servers = [];
-        const serverLinks = doc.querySelectorAll('li[data-sv-id], a[data-sv-id], .server-item, [data-link-id]');
-
-        if (serverLinks.length > 0) {
-            serverLinks.forEach(el => {
-                const svId = el.getAttribute('data-sv-id') || el.getAttribute('data-link-id') || '';
-                const linkId = el.getAttribute('data-link-id') || svId;
-                const name = el.textContent.trim() || 'Server';
-                const type = el.closest('[data-type]')?.getAttribute('data-type') || 'sub';
-                if (linkId) servers.push({ linkId, name, type });
-            });
-        } else {
-            const typeGroups = doc.querySelectorAll('[data-type]');
-            typeGroups.forEach(group => {
-                const type = group.getAttribute('data-type');
-                group.querySelectorAll('li, a').forEach(item => {
-                    const linkId = item.getAttribute('data-sv-id') || item.getAttribute('data-link-id') || '';
-                    const name = item.textContent.trim() || 'Unknown';
-                    if (linkId) servers.push({ linkId, name, type });
-                });
-            });
-        }
-
-        if (servers.length === 0) {
-            doc.querySelectorAll('[data-link-id]').forEach(el => {
-                const linkId = el.getAttribute('data-link-id');
-                const name = el.textContent.trim() || el.getAttribute('data-name') || 'Server';
-                if (linkId && !servers.find(s => s.linkId === linkId)) {
-                    servers.push({ linkId, name, type: 'sub' });
-                }
-            });
-        }
-
-        state.servers = servers;
-        renderServers(servers);
-
-        if (servers.length > 0) {
-            selectServer(servers[0].linkId);
-        } else {
-            serverList.innerHTML = '<div class="loading-text">No servers available</div>';
-        }
-    } catch (e) {
-        console.error('Failed to load servers:', e);
-        serverList.innerHTML = `
-            <div class="error-msg">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Could not load servers. Retrying...</p>
-                <button class="retry-btn" onclick="loadServers(state.episodes.find(e => e.num === state.currentEp))">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
-            </div>
-        `;
-    }
-}
-
 function updateSvCount() {
     if (svCountEl) {
         const n = document.querySelectorAll('#serverPanel .sv-btn').length;
         svCountEl.textContent = n ? n + (n === 1 ? ' server' : ' servers') : '—';
-    }
-}
-function renderServers(servers) {
-    const grouped = {};
-    servers.forEach(sv => {
-        if (!grouped[sv.type]) grouped[sv.type] = [];
-        grouped[sv.type].push(sv);
-    });
-    let html = '';
-    for (const [type, svs] of Object.entries(grouped)) {
-        html += `<div class="server-section">
-            <div class="server-type-label">${type.toUpperCase()}</div>
-            <div class="server-list">
-                ${svs.map(sv => `
-                    <div class="sv-btn ${sv.type} ${state.currentSv === sv.linkId ? 'active' : ''}"
-                         onclick="selectServer('${sv.linkId}')" data-link-id="${sv.linkId}">
-                        ${sv.name}
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
-    }
-    serverList.innerHTML = html || '<div class="loading-text">No servers found</div>';
-    updateSvCount();
-}
-
-async function selectServer(linkId) {
-    state.currentSv = linkId;
-    state.lastSource = { type: 'anikaitv' };
-    state.currentMiruro = null;
-    state.currentMegap = null;
-    state.currentEmbed = null;
-
-    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.toggle('active', btn.dataset.linkId === linkId));
-    document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
-
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.querySelector('span').textContent = 'Loading video stream...';
-
-    const url = `/ajax/server?get=${linkId}`;
-    try {
-        const jsonText = await fetchWithProxy(url);
-        let data;
-        try {
-            data = JSON.parse(jsonText);
-        } catch (parseErr) {
-            console.error('Failed to parse server response:', parseErr);
-            showError('Invalid server response');
-            return;
-        }
-
-        if (data.status === 200 && data.result && data.result.url) {
-            const videoUrl = data.result.url;
-            const isEmbed = videoUrl.includes('embed') ||
-                videoUrl.includes('player.php') ||
-                videoUrl.includes('player.html') ||
-                videoUrl.includes('megacloud') ||
-                videoUrl.includes('gogoanime') ||
-                videoUrl.includes('east') ||
-                videoUrl.includes('west') ||
-                videoUrl.includes('server') ||
-                /\/[a-z]+\/[a-zA-Z0-9]+/.test(videoUrl.split('?')[0]);
-
-            if (isEmbed) {
-                playerFrame.src = getVideoProxyUrl(videoUrl);
-                loadingOverlay.style.display = 'none';
-            } else {
-                const proxiedUrl = getVideoProxyUrl(videoUrl);
-                playerFrame.src = buildPlayerUrl(proxiedUrl, { title: pageTitle.textContent });
-                loadingOverlay.style.display = 'none';
-            }
-        } else {
-            const msg = data.message || 'Server returned no video URL';
-            showError(msg);
-        }
-    } catch (e) {
-        console.error('Failed to get server URL:', e);
-        showError(e.message);
     }
 }
 
@@ -1867,7 +1615,7 @@ function skipParams() {
 }
 
 // ============ MIRURO SERVERS ============
-async function loadMiruroOptions(ep, autoplay) {
+async function loadMiruroOptions(ep) {
     const miruroList = document.getElementById('miruroList');
     miruroList.innerHTML = `
         <div class="server-section">
@@ -1897,11 +1645,6 @@ async function loadMiruroOptions(ep, autoplay) {
                 op: pickAniskip(serversData.mappings.aniskip, 'op'),
                 ed: pickAniskip(serversData.mappings.aniskip, 'ed'),
             };
-        }
-
-        if (autoplay && state.miruroServers.length > 0 && !state.currentMiruro) {
-            const first = state.miruroServers[0];
-            await selectMiruroServer(first.provider, first.category);
         }
     } catch (e) {
         console.warn('Miruro unavailable:', e.message);
@@ -1933,7 +1676,6 @@ async function selectMiruroServer(provider, category) {
     state.currentMiruro = provider + ':' + category;
     state.lastSource = { type: 'miruro', provider, category };
     document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.toggle('active', btn.dataset.miruro === state.currentMiruro));
-    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
 
@@ -1999,9 +1741,8 @@ async function selectMegapServer(lang) {
     state.lastSource = { type: 'megap', lang };
     document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.toggle('active', btn.dataset.megap === lang));
     document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('#apipList .sv-btn, #ytList .sv-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#apipList .sv-btn').forEach(btn => btn.classList.remove('active'));
 
     currentEpType.textContent = lang.toUpperCase();
 
@@ -2029,8 +1770,20 @@ async function selectMegapServer(lang) {
         loadingOverlay.style.display = 'none';
     } catch (e) {
         console.error('MegaPlay stream failed:', e);
+        const vidplay = state.embeds.find(emb => emb.kind === 'hls' && /vidplay/i.test(emb.host || ''));
+        if (vidplay) {
+            currentEpType.textContent = 'VIDPLAY';
+            selectEmbedServer(vidplay.url);
+            return;
+        }
         showError(e.message);
     }
+}
+
+function selectVidplayFallback() {
+    const vidplay = state.embeds.find(emb => emb.kind === 'hls' && /vidplay/i.test(emb.host || ''));
+    if (vidplay) selectEmbedServer(vidplay.url);
+    return !!vidplay;
 }
 
 // ============ MIRURO EMBED SERVERS ============
@@ -2099,7 +1852,6 @@ async function selectEmbedServer(url) {
     state.lastSource = emb ? { type: 'embed', host: emb.host } : { type: 'embed' };
     document.querySelectorAll('[data-embed]').forEach(btn => btn.classList.toggle('active', btn.dataset.embed === url));
     document.querySelectorAll('[data-miruro]').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sv-btn[data-link-id]').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('[data-megap]').forEach(btn => btn.classList.remove('active'));
 
     if (emb) currentEpType.textContent = (emb.category || 'embed').toUpperCase();
@@ -2200,71 +1952,6 @@ async function selectApiplayerServer() {
     }
 }
 
-// ============ YOUTUBE ============
-// Server-side search (no API key) for "full episode" videos; played through
-// the youtube-nocookie embed so the site still owns the iframe.
-async function renderYoutubeOptions() {
-    const list = document.getElementById('ytList');
-    list.innerHTML = '';
-    try {
-        await resolveAnilist();
-        if (!state.title) return;
-        const epNum = state.currentEp;
-        const query = `${state.title} Episode ${epNum} Full English Sub`;
-        list.innerHTML = `
-            <div class="server-section">
-                <div class="server-type-label">YOUTUBE · full episodes</div>
-                <div class="server-list">
-                    <div class="yt-loading">Searching YouTube...</div>
-                </div>
-            </div>`;
-        const resp = await fetch('/api/youtube/search?q=' + encodeURIComponent(query));
-        const data = await resp.json();
-        const toSeconds = (len) => {
-            const p = String(len || '').split(':');
-            return p.length === 2 ? (+p[0] * 60) + (+p[1]) : 0;
-        };
-        const vids = (data.videos || []).filter(v => v.length).sort((a, b) => toSeconds(b.length) - toSeconds(a.length));
-        if (vids.length === 0) {
-            list.innerHTML = `
-                <div class="server-section">
-                    <div class="server-type-label">YOUTUBE · full episodes</div>
-                    <div class="server-list"><div class="yt-loading">No results</div></div>
-                </div>`;
-            return;
-        }
-        list.innerHTML = `
-            <div class="server-section">
-                <div class="server-type-label">YOUTUBE · full episodes</div>
-                <div class="server-list">
-                    ${vids.map((v, i) => `
-                        <div class="sv-btn embed"
-                             title="${(v.title || '').replace(/"/g, '&quot;')}"
-                             onclick="selectYoutubeVideo('${v.id}','${(v.channel || '').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
-                            ${i + 1}. ${(v.channel || 'YouTube').slice(0, 22)} <span class="embed-badge">${v.length}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>`;
-        updateSvCount();
-    } catch (e) {
-        console.warn('YouTube options unavailable:', e.message);
-        list.innerHTML = '';
-    }
-}
-
-function selectYoutubeVideo(videoId, channel) {
-    state.lastSource = { type: 'youtube' };
-    document.querySelectorAll('.sv-btn').forEach(btn => btn.classList.remove('active'));
-    const btn = [...document.querySelectorAll('#ytList .sv-btn')].find(b => b.textContent.includes(channel));
-    if (btn) btn.classList.add('active');
-    currentEpType.textContent = 'YOUTUBE';
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.querySelector('span').textContent = 'Loading YouTube...';
-    playerFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
-    loadingOverlay.style.display = 'none';
-}
-
 // ============ AUTO-NEXT ============
 function resumeSource() {
     const ls = state.lastSource;
@@ -2281,11 +1968,7 @@ function resumeSource() {
         else if (state.embeds.length) selectEmbedServer(state.embeds[0].url);
     } else if (ls.type === 'apiplayer') {
         selectApiplayerServer();
-    } else if (ls.type === 'youtube') {
-        const btn = document.querySelector('#ytList .sv-btn');
-        if (btn) btn.click();
     }
-    // anikaitv: loadServers already auto-selects the first server
 }
 
 window.addEventListener('message', (e) => {
@@ -2332,7 +2015,8 @@ function retryLastServer() {
         return selectMiruroServer(p, c);
     }
     if (state.currentEmbed) return selectEmbedServer(state.currentEmbed);
-    return selectServer(state.currentSv);
+    if (state.currentEp) return selectMegapServer('sub');
+    return selectApiplayerServer();
 }
 
 function showError(msg) {
