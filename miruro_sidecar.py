@@ -6,13 +6,18 @@ import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlsplit
 
-from curl_cffi import requests
-
 try:
     from playwright.sync_api import sync_playwright
     HAS_PLAYWRIGHT = True
 except Exception:
     HAS_PLAYWRIGHT = False
+
+try:
+    from curl_cffi import requests
+    HAS_CURL = True
+except Exception:
+    requests = None
+    HAS_CURL = False
 
 PORT = int(os.environ.get("MIRURO_SIDECAR_PORT", "8765"))
 PIPE_URL = os.environ.get("MIRURO_PIPE_URL", "https://www.miruro.to/api/secure/pipe")
@@ -110,14 +115,19 @@ def _browser_worker():
     page = ctx.new_page()
     _browser_state["started"] = True
     _browser_state["init_done"] = True
-    # Warm the Cloudflare challenge up front so the first request is fast.
-    _browser_state["warmed"] = _warm(page, ctx)
-    _browser_state["last_warm"] = time.time()
-    _browser_state["error"] = None if _browser_state["warmed"] else "Cloudflare challenge did not clear"
-    if not _browser_state["warmed"]:
-        print("[miruro_sidecar] WARNING initial Cloudflare warmup failed", flush=True)
-    else:
-        print("[miruro_sidecar] Cloudflare challenge cleared (cf_clearance set)", flush=True)
+    try:
+        # Warm the Cloudflare challenge up front so the first request is fast.
+        _browser_state["warmed"] = _warm(page, ctx)
+        _browser_state["last_warm"] = time.time()
+        _browser_state["error"] = None if _browser_state["warmed"] else "Cloudflare challenge did not clear"
+        if not _browser_state["warmed"]:
+            print("[miruro_sidecar] WARNING initial Cloudflare warmup failed", flush=True)
+        else:
+            print("[miruro_sidecar] Cloudflare challenge cleared (cf_clearance set)", flush=True)
+    except Exception as exc:
+        _browser_state["warmed"] = False
+        _browser_state["error"] = f"warmup crashed: {exc}"
+        print(f"[miruro_sidecar] WARNING {_browser_state['error']}", flush=True)
     while True:
         job = _job_q.get()
         if job is None:
@@ -162,6 +172,8 @@ def browser_fetch(url):
 
 
 def curl_fetch(url):
+    if not HAS_CURL:
+        raise RuntimeError("curl_cffi not installed")
     resp = requests.get(url, headers=HEADERS, impersonate="chrome136", timeout=30)
     return {
         "status": resp.status_code,

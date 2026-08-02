@@ -1359,7 +1359,18 @@ async function loadMiruroEpisodes(anikaitvError) {
 
     try {
         await resolveAnilist();
-        const epResp = await fetch(`/api/miruro/episodes?anilistId=${state.anilistId}`);
+        // Don't let a dead miruro pipe stall the page — fall back to AniList
+        // episodes after a short timeout so MEGA PLAY still renders.
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        let epResp;
+        try {
+            epResp = await fetch(`/api/miruro/episodes?anilistId=${state.anilistId}`, { signal: ctrl.signal });
+        } catch (fe) {
+            throw new Error('miruro timed out: ' + (fe.message || fe.name));
+        } finally {
+            clearTimeout(timer);
+        }
         const epData = await epResp.json();
         const list = epData.episodes || [];
         if (list.length === 0) throw new Error(epData.error || 'No miruro episodes found');

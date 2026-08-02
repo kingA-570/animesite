@@ -286,7 +286,7 @@ async function miruroProtocolVersion() {
     return miruroProtocolVersionCache.value;
   }
   try {
-    const sidecar = await fetch(`${MIRURO_SIDECAR_URL}/jwks`, { signal: AbortSignal.timeout(10000) });
+    const sidecar = await fetch(`${MIRURO_SIDECAR_URL}/jwks`, { signal: AbortSignal.timeout(6000) });
     const result = await sidecar.json();
     const version = result && (result.version || (result.body && JSON.parse(result.body).version));
     if (version) {
@@ -311,7 +311,7 @@ async function miruroPipeRequest(payload) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ e: encoded }),
-      signal: AbortSignal.timeout(40000),
+      signal: AbortSignal.timeout(18000),
     });
     const result = await sidecar.json();
 
@@ -1571,6 +1571,19 @@ const server = http.createServer(async (req, res) => {
         log('MIRURO_RESOLVE_ERR', slug, 502, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message, resolved: null }));
+      }
+    }
+
+    // ========== ROUTE: /api/miruro/status (sidecar diagnostics) ==========
+    if (reqUrl.pathname === '/api/miruro/status') {
+      try {
+        const sidecar = await fetch(`${MIRURO_SIDECAR_URL}/health`, { signal: AbortSignal.timeout(5000) });
+        const info = await sidecar.json();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ sidecar: info }));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ sidecar: { ok: false, error: err.message } }));
       }
     }
 
