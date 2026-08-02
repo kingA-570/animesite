@@ -40,7 +40,7 @@ HEADERS = {
 
 ORIGIN = f"{urlsplit(PIPE_URL).scheme}://{urlsplit(PIPE_URL).netloc}"
 
-_browser_state = {"warmed": False, "last_warm": 0, "error": None, "started": False}
+_browser_state = {"warmed": False, "last_warm": 0, "error": None, "started": False, "init_done": False, "browser_failed": False}
 _job_q = queue.Queue()
 _RESP_OK = None
 
@@ -88,20 +88,28 @@ def _fetch_on_page(page, ctx, url):
 
 
 def _browser_worker():
-    pw = sync_playwright().start()
-    browser = pw.chromium.launch(
-        headless=True,
-        args=[
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-blink-features=AutomationControlled",
-            "--disable-features=IsolateOrigins,site-per-process",
-            "--mute-audio",
-        ],
-    )
+    try:
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=IsolateOrigins,site-per-process",
+                "--mute-audio",
+            ],
+        )
+    except Exception as exc:
+        _browser_state["browser_failed"] = True
+        _browser_state["init_done"] = True
+        _browser_state["error"] = f"browser launch failed: {exc}"
+        print(f"[miruro_sidecar] {_browser_state['error']}; falling back to curl_cffi", flush=True)
+        return
     ctx = browser.new_context(user_agent=USER_AGENT, locale="en-US")
     page = ctx.new_page()
     _browser_state["started"] = True
+    _browser_state["init_done"] = True
     # Warm the Cloudflare challenge up front so the first request is fast.
     _browser_state["warmed"] = _warm(page, ctx)
     _browser_state["last_warm"] = time.time()
@@ -132,6 +140,17 @@ def _start_browser_worker():
 
 
 def browser_fetch(url):
+    if _browser_state["browser_failed"]:
+        raise RuntimeError(_browser_state["error"] or "browser unavailable")
+    # Wait briefly for Chromium to finish launching on cold start.
+    for _ in range(20):
+        if _browser_state["init_done"]:
+            break
+        time.sleep(0.5)
+    if _browser_state["browser_failed"]:
+        raise RuntimeError(_browser_state["error"] or "browser unavailable")
+    if not _browser_state["init_done"]:
+        raise RuntimeError("browser did not finish starting")
     ev = threading.Event()
     holder = {}
     _job_q.put((url, ev, holder))
@@ -152,7 +171,7 @@ def curl_fetch(url):
 
 
 def transport_available():
-    return HAS_PLAYWRIGHT
+    return HAS_PLAYWRIGHT and not _browser_state["browser_failed"]
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -175,6 +194,7 @@ class Handler(BaseHTTPRequestHandler):
                 "transport": "browser" if transport_available() else "curl_cffi",
                 "browser_error": _browser_state["error"],
                 "started": _browser_state["started"],
+                "init_done": _browser_state["init_done"],
             })
             return
         if self.path == "/jwks":

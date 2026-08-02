@@ -12,7 +12,8 @@ RUN apt-get update \
  && python3 -m pip install --break-system-packages --no-cache-dir --upgrade pip \
  && python3 -m pip install --break-system-packages --no-cache-dir --only-binary=:all: curl_cffi \
  && python3 -m pip install --break-system-packages --no-cache-dir playwright \
- && python3 -m playwright install --with-deps chromium
+ && (python3 -m playwright install --with-deps chromium \
+     || echo "WARNING: playwright chromium install failed; sidecar will fall back to curl_cffi")
 
 WORKDIR /app
 
