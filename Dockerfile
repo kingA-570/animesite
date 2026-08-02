@@ -30,7 +30,7 @@ WORKDIR /app
 
 # No npm dependencies needed - server.js uses only Node built-ins
 COPY package.json server.js miruro_sidecar.py ./
-COPY home.html watch.html player.html animeverse.html ./
+COPY home.html watch.html player.html animeverse.html search.html ./
 COPY style.css themes.css theme.js main.js ./
 COPY logo.png HOMEPAGE.PNG TITLEBAR.PNG 12.mp4 ./
 

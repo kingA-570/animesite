@@ -316,7 +316,156 @@
             }
             header #menu > ul > li.active > ul > li { opacity: 1; float: none; width: 100% !important; }
             header #menu > ul > li > a { font-size: 1rem; }
-            header #search .search-popup { display: none !important; }
+        }
+
+        /* ============ Miruro-style header search ============ */
+        header .wrapper { gap: 12px; }
+        #search { flex-grow: 1; display: flex; justify-content: center; min-width: 0; }
+        #search form {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 560px;
+            height: 40px;
+            padding: 0 8px 0 6px;
+            background: var(--c-surface-3);
+            border: 1px solid var(--c-border);
+            border-radius: 999px;
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        #search form:focus-within {
+            border-color: var(--c-accent);
+            background: var(--c-surface);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
+        }
+        #search form button { order: -1; font-size: 1.05rem; color: var(--c-text-3); cursor: pointer; }
+        #search form button:hover { color: var(--c-text); }
+        #search form input {
+            order: 0;
+            flex: 1;
+            min-width: 0;
+            height: 100%;
+            padding: 0 4px;
+            font-size: 0.95rem;
+            color: var(--c-text);
+        }
+        #search form input::placeholder { color: var(--c-text-3); }
+        #search form .s-clear {
+            order: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            font-size: 0.85rem;
+            border-radius: 50%;
+            color: var(--c-text-3);
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+        #search form .s-clear:hover { color: var(--c-text); background: var(--c-hover); }
+        #search form.has-value .s-clear { display: flex; }
+        #search form .tip { display: none !important; }
+
+        #search .search-popup {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            padding-top: 0;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 14px;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            font-size: 0.95rem;
+            line-height: normal;
+            z-index: 80;
+        }
+        #search.search-open .search-popup { display: block !important; }
+        #search .search-popup .s-close {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            font-size: 0.8rem;
+            color: var(--c-text-3);
+            cursor: pointer;
+            z-index: 2;
+        }
+        #search .search-popup .s-close:hover { color: var(--c-accent); }
+        #search .search-popup .body { padding: 6px; max-height: 380px; overflow-y: auto; }
+        #search .search-popup .body .no-result { padding: 18px 12px; text-align: center; color: var(--c-text-3); font-size: 0.9rem; }
+        #search .search-popup .body .items .item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px 10px;
+            border-radius: 10px;
+            transition: background 0.12s;
+        }
+        #search .search-popup .body .items .item:hover,
+        #search .search-popup .body .items .item.active { background: var(--c-hover); }
+        #search .search-popup .body .items .item .poster {
+            width: 40px;
+            height: 54px;
+            flex: 0 0 40px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--c-surface-3);
+        }
+        #search .search-popup .body .items .item .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #search .search-popup .body .items .item .info { flex: 1; min-width: 0; }
+        #search .search-popup .body .items .item .name {
+            display: block;
+            color: var(--c-text-bright);
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #search .search-popup .body .items .item:hover .name { color: var(--c-accent); }
+        #search .search-popup .body .items .item .meta { color: var(--c-text-3); font-size: 0.75rem; margin-top: 2px; }
+        #search .search-popup .foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--c-surface-2);
+            border-top: 1px solid var(--c-border);
+            color: var(--c-text-3);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        #search .search-popup .foot .hint { white-space: nowrap; }
+        #search .search-popup .foot .hint kbd {
+            font-family: inherit;
+            padding: 1px 6px;
+            border-radius: 5px;
+            border: 1px solid var(--c-border);
+            background: var(--c-surface-3);
+            color: var(--c-text-2);
+            font-size: 0.72rem;
+        }
+        #search .search-popup .foot .more { float: none; white-space: nowrap; color: var(--c-accent); font-weight: 600; }
+        #search .search-popup .foot .more:hover { color: var(--c-text-bright); }
+
+        @media (min-width: 1200px) {
+            #search .search-popup .s-close { display: block; }
+        }
+
+        /* Keep the live dropdown visible & tidy on narrow screens too */
+        @media (max-width: 1199.98px) {
+            #search .search-popup {
+                padding-top: 0 !important;
+                top: calc(100% + 8px) !important;
+                border-radius: 12px !important;
+            }
+            #search .search-popup .foot .hint { display: none; }
         }
 
         /* ============ Footer (centered, miruro-style) ============ */
@@ -723,60 +872,22 @@
                                 </a>
                             </div>
                             <div id="search">
-                                <form method="get" autocomplete="off" action="#">
-                                    <button type="button">
+                                <form method="get" autocomplete="off" action="/search">
+                                    <button type="submit" aria-label="Search">
                                         <i class="fa-solid fa-magnifying-glass"></i>
                                     </button>
-                                    <input type="text" name="keyword" placeholder="Search anime..."/>
-                                    <div class="tip">
-                                        <svg class="icon">
-                                            <use xlink:href="#icon-search-shortcut"></use>
-                                        </svg>
-                                        <span>Quick Access</span>
-                                    </div>
+                                    <input type="text" name="q" placeholder="Search anime..." aria-label="Search anime"/>
+                                    <button type="button" class="s-clear" aria-label="Clear search" tabindex="-1">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
                                     <div class="search-popup">
                                         <div class="s-close">Clear</div>
                                         <div class="inner">
-                                            <div class="head-box">
-                                                <div class="tabs-sm">
-                                                    <div class="tab active">Anime</div>
-                                                </div>
-                                                <div class="actions">
-                                                    <a class="filter" href="#">
-                                                        <svg class="icon">
-                                                            <use xlink:href="#icon-tip-filter"></use>
-                                                        </svg>
-                                                        <span>Filter</span>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                            <div class="body"></div>
+                                            <div class="body"><div class="items"></div></div>
                                             <div class="foot">
-                                                <div class="nav-tip">
-                                                    <span>
-                                                        <svg class="icon">
-                                                            <use xlink:href="#icon-tip-arrow-down"></use>
-                                                        </svg>
-                                                        <svg class="icon">
-                                                            <use xlink:href="#icon-tip-arrow-up"></use>
-                                                        </svg>
-                                                        <span>to navigate</span>
-                                                    </span>
-                                                    <span>
-                                                        <svg class="icon">
-                                                            <use xlink:href="#icon-tip-enter"></use>
-                                                        </svg>
-                                                        <span>to select</span>
-                                                    </span>
-                                                    <span>
-                                                        <svg class="icon">
-                                                            <use xlink:href="#icon-tip-esc"></use>
-                                                        </svg>
-                                                        <span>to exit</span>
-                                                    </span>
-                                                </div>
+                                                <span class="hint">Press <kbd>Enter</kbd> to see all results</span>
                                                 <a class="more" href="#" style="display: none">
-                                                    View all <i class="fas fa-long-arrow-right"></i>
+                                                    View all results <i class="fas fa-long-arrow-right"></i>
                                                 </a>
                                             </div>
                                         </div>
@@ -1869,13 +1980,136 @@ console.log('Watch page initialized. Slug:', state.slug);
         if (menu && !menu.contains(e.target) && toggler && !toggler.contains(e.target)) closeMenu();
     });
 
+    // ============ LIVE SEARCH (miruro-style) ============
     const form = search ? search.querySelector('form') : null;
+    let searchTimer = null;
+    let searchSeq = 0;
+    let searchItems = [];
+    let searchIdx = -1;
+
+    function renderSearch() {
+        const popup = search ? search.querySelector('.search-popup') : null;
+        if (!popup) return;
+        const body = popup.querySelector('.body');
+        const items = body.querySelector('.items');
+        if (!items) return;
+        if (searchItems.length === 0) {
+            items.innerHTML = '<div class="no-result">No results found</div>';
+            searchIdx = -1;
+            return;
+        }
+        items.innerHTML = searchItems.map((it, i) =>
+            '<a class="item' + (i === searchIdx ? ' active' : '') + '" href="/watch.html?anilistId=' + it.id + '">' +
+                '<span class="poster">' + (it.image ? '<img loading="lazy" src="' + it.image + '" alt=""/>' : '') + '</span>' +
+                '<span class="info">' +
+                    '<span class="name"></span>' +
+                    '<span class="meta"></span>' +
+                '</span>' +
+            '</a>'
+        ).join('');
+        items.querySelectorAll('.item').forEach((el, i) => {
+            el.querySelector('.name').textContent = searchItems[i].title;
+            const meta = [];
+            if (searchItems[i].year) meta.push(searchItems[i].year);
+            if (searchItems[i].format) meta.push(searchItems[i].format);
+            meta.push(searchItems[i].subCount + ' sub' + (searchItems[i].dubCount ? ' · ' + searchItems[i].dubCount + ' dub' : ''));
+            el.querySelector('.meta').textContent = meta.join(' · ');
+        });
+        const more = popup.querySelector('.foot .more');
+        if (more) {
+            more.href = '/search?q=' + encodeURIComponent(form.querySelector('input').value.trim());
+            more.style.display = 'inline-flex';
+        }
+    }
+
+    function updateSearchBox() {
+        if (!form) return;
+        form.classList.toggle('has-value', !!form.querySelector('input').value.trim());
+    }
+
     if (form) {
+        const inp = form.querySelector('input');
+        const clearBtn = form.querySelector('.s-clear');
+
+        inp.addEventListener('input', () => {
+            updateSearchBox();
+            const kw = inp.value.trim();
+            if (!kw) {
+                searchItems = [];
+                searchIdx = -1;
+                const popup = search ? search.querySelector('.search-popup') : null;
+                if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+                search.classList.remove('search-open');
+                return;
+            }
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                const my = ++searchSeq;
+                fetch('/api/anime/search?q=' + encodeURIComponent(kw))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (my !== searchSeq) return;
+                        searchItems = data.results || [];
+                        searchIdx = searchItems.length ? 0 : -1;
+                        renderSearch();
+                        search.classList.add('search-open');
+                    })
+                    .catch(() => {
+                        if (my !== searchSeq) return;
+                        searchItems = [];
+                        renderSearch();
+                        search.classList.add('search-open');
+                    });
+            }, 250);
+        });
+
+        inp.addEventListener('keydown', (e) => {
+            if (!search.classList.contains('search-open')) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                searchIdx = searchItems.length ? (searchIdx + 1) % searchItems.length : -1;
+                renderSearch();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                searchIdx = searchItems.length ? (searchIdx - 1 + searchItems.length) % searchItems.length : -1;
+                renderSearch();
+            } else if (e.key === 'Enter' && searchIdx >= 0) {
+                e.preventDefault();
+                const link = search.querySelector('.item.active');
+                if (link) window.location.href = link.href;
+            }
+        });
+
+        inp.addEventListener('focus', () => {
+            if (searchItems.length) search.classList.add('search-open');
+        });
+        inp.addEventListener('blur', () => {
+            setTimeout(() => search.classList.remove('search-open'), 150);
+        });
+
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            inp.value = '';
+            searchItems = [];
+            searchIdx = -1;
+            updateSearchBox();
+            const popup = search ? search.querySelector('.search-popup') : null;
+            if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+            inp.focus();
+        });
+
         form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const inp = form.querySelector('input[name="keyword"]');
-            const kw = (inp && inp.value || '').trim();
-            if (kw) window.location.href = '/?keyword=' + encodeURIComponent(kw);
+            const kw = inp.value.trim();
+            if (!kw) {
+                e.preventDefault();
+                inp.focus();
+                return;
+            }
+            if (searchIdx >= 0 && search.querySelector('.item.active')) {
+                e.preventDefault();
+                window.location.href = search.querySelector('.item.active').href;
+                return;
+            }
+            window.location.href = '/search?q=' + encodeURIComponent(kw);
         });
     }
 
@@ -1885,7 +2119,7 @@ console.log('Watch page initialized. Slug:', state.slug);
             if (!search) return;
             const show = search.classList.toggle('show');
             if (show) {
-                const inp = search.querySelector('input[name="keyword"]');
+                const inp = search.querySelector('input');
                 if (inp) inp.focus();
             }
         });

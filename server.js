@@ -558,6 +558,48 @@ function extractTmdbId(info) {
   return null;
 }
 
+// Full-field search used by the /api/anime/search endpoint. Returns the same
+// shape anilistHomeFeed does, so results can be fed straight into
+// formatAnilistForHome.
+async function anilistSearchFull(queryTitle, perPage = 48) {
+  const gql = `query ($s: String, $perPage: Int) {
+    Page(perPage: $perPage) {
+      media(search: $s, type: ANIME, isAdult: false) {
+        id
+        idMal
+        title { romaji english native }
+        coverImage { extraLarge large color }
+        bannerImage
+        format
+        episodes
+        duration
+        status
+        seasonYear
+        season
+        averageScore
+        meanScore
+        genres
+        synonyms
+        description
+        nextAiringEpisode { episode airingAt timeUntilAiring }
+        startDate { year month day }
+        studios { nodes { name isAnimationStudio } }
+      }
+    }
+  }`;
+  const response = await fetch(ANILIST_GRAPHQL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ query: gql, variables: { s: queryTitle, perPage: Number(perPage) } }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (response.status !== 200) {
+    throw new Error(`AniList search failed (${response.status})`);
+  }
+  const json = await response.json();
+  return (json?.data?.Page?.media) || [];
+}
+
 async function anilistSearch(queryTitle) {
   const gql = `query ($s: String) {
     Page(perPage: 8) {
@@ -683,8 +725,17 @@ const CACHE_MAX_AGE = {
 async function serveStatic(reqUrl, res, req) {
   try {
     let pathname = reqUrl.pathname;
-    if (pathname === '/' || pathname === '/home') pathname = '/home.html';
+    if (pathname === '/' || pathname === '/home') {
+      // Legacy search redirect (?keyword=... → /search?q=...)
+      const kw = (reqUrl.searchParams.get('keyword') || '').trim();
+      if (kw) {
+        res.writeHead(302, { Location: `/search?q=${encodeURIComponent(kw)}` });
+        return res.end();
+      }
+      pathname = '/home.html';
+    }
     if (pathname === '/animeverse' || pathname === '/animeverse.html') pathname = '/home.html';
+    if (pathname === '/search' || pathname === '/search/') pathname = '/search.html';
     if (pathname === '/watch' || pathname === '/watch/') pathname = '/watch.html';
     if (pathname === '/player' || pathname === '/player/') pathname = '/player.html';
 
@@ -1468,6 +1519,26 @@ const server = http.createServer(async (req, res) => {
         log('HOME_FEED_ERR', reqUrl.pathname, 502, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message, anilist: [] }));
+      }
+    }
+
+    // ========== ROUTE: /api/anime/search (AniList full-text search) ==========
+    if (reqUrl.pathname === '/api/anime/search') {
+      const q = (reqUrl.searchParams.get('q') || '').trim();
+      if (!q) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing q parameter', results: [] }));
+      }
+      try {
+        const media = await anilistSearchFull(q);
+        const results = media.map(formatAnilistForHome);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[SEARCH] ${results.length} results`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ query: q, results, total: results.length }));
+      } catch (err) {
+        log('SEARCH_ERR', reqUrl.pathname + reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, results: [] }));
       }
     }
 

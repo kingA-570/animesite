@@ -1327,7 +1327,7 @@ function() {
                 r.bind("header"),
                 w.bind('[data-toggle="tooltip"]'),
                 m.bind("[data-tip]"),
-                g.bind("#search"),
+                g.bind("#search:not(.new-search)"),
                 l.bind("#menu"),
                 d.bind("[data-switch]"),
                 u.bind(".d-title"),
