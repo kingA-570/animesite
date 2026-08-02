@@ -265,6 +265,12 @@
         }
         .ctrl-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
         .ctrl-btn svg { width: 20px; height: 20px; }
+        #prev-ep-btn, #next-ep-btn { color: #b5a8ff; }
+        #prev-ep-btn:hover, #next-ep-btn:hover { background: rgba(181,168,255,0.2); color: #cfc9ff; }
+        #prev-ep-btn.hide, #next-ep-btn.hide { display: none; }
+
+        /* Subtitle cue styling (injected dynamically) */
+        #cue-style { display: none; }
 
         #volume-container {
             display: flex;
@@ -367,6 +373,10 @@
             margin-right: -4px;
         }
         .menu-value { color: #8b93b5; font-size: 12.5px; font-weight: 600; }
+        .menu-value .swatch {
+            display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.3); vertical-align: -1px; margin-right: 6px;
+        }
         .menu-item .chevron { color: #8b93b5; font-size: 11px; }
         .menu-item.hide { display: none; }
         #cc-btn.on { color: #b5a8ff; }
@@ -432,9 +442,8 @@
             #skip-controls { right: 10px; bottom: 88px; }
         }
         @media (max-width: 400px) {
-            .ctrl-btn { width: 32px; height: 32px; }
-            .ctrl-btn svg { width: 16px; height: 16px; }
-            #rewind-btn, #forward-btn { display: none; }
+            .ctrl-btn { width: 30px; height: 30px; }
+            .ctrl-btn svg { width: 15px; height: 15px; }
             #settings-menu { width: calc(100vw - 16px); }
         }
     </style>
@@ -506,6 +515,10 @@
                 <div id="seek-thumb" class="seek-thumb"></div>
             </div>
             <div class="controls-row">
+                <button id="prev-ep-btn" class="ctrl-btn" title="Previous Episode">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                </button>
+
                 <button id="play-btn" class="ctrl-btn" title="Play/Pause">
                     <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
                 </button>
@@ -522,6 +535,10 @@
                         <polyline points="23 4 23 10 17 10"/>
                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                     </svg>
+                </button>
+
+                <button id="next-ep-btn" class="ctrl-btn" title="Next Episode">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h2v12H4zm3.5 6 8.5-6v12z"/></svg>
                 </button>
 
                 <div id="volume-container">
@@ -617,6 +634,8 @@
         const menuItems = document.getElementById('menu-items');
         const rewindBtn = document.getElementById('rewind-btn');
         const forwardBtn = document.getElementById('forward-btn');
+        const prevEpBtn = document.getElementById('prev-ep-btn');
+        const nextEpBtn = document.getElementById('next-ep-btn');
         const controls = document.getElementById('controls');
         const controlsTop = document.getElementById('controls-top');
         let controlsTimeout = null;
@@ -972,6 +991,30 @@
                         data-action="subtitle" data-val="${i}">${t.label || t.lang || 'Subtitle ' + (i + 1)}</button>
                 `).join('');
                 menuItems.innerHTML = html;
+            } else if (section === 'substyle') {
+                menuTitle.textContent = 'Subtitle Style';
+                menuItems.innerHTML = `
+                    <button class="menu-item" data-action="sub-size">
+                        <span>Text Size</span>
+                        <span class="menu-value">${sizeLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-color">
+                        <span>Text Color</span>
+                        <span class="menu-value"><i class="swatch" style="background:${subStyle.color}"></i>${colorLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-bg">
+                        <span>Background</span>
+                        <span class="menu-value">${bgLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-outline">
+                        <span>Outline</span>
+                        <span class="menu-value">${subStyle.outline ? 'On' : 'Off'}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-pos">
+                        <span>Position</span>
+                        <span class="menu-value">${subStyle.pos === 'top' ? 'Top' : 'Bottom'}</span>
+                    </button>
+                `;
             } else {
                 menuTitle.textContent = 'Settings';
                 menuItems.innerHTML = `
@@ -986,6 +1029,10 @@
                     <button class="menu-item ${subsMeta.length ? '' : 'hide'}" data-action="open-subs">
                         <span>Subtitles</span>
                         <span class="menu-value">${currentSubtitleLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="open-substyle">
+                        <span>Subtitle Style</span>
+                        <span class="menu-value">${subStyleSummary()}</span>
                     </button>
                 `;
             }
@@ -1017,6 +1064,13 @@
             if (action === 'open-speed') renderMenu('speed');
             else if (action === 'open-quality') renderMenu('quality');
             else if (action === 'open-subs') renderMenu('subs');
+            else if (action === 'open-substyle') renderMenu('substyle');
+            else if (action === 'sub-size' || action === 'sub-color' || action === 'sub-bg' || action === 'sub-outline' || action === 'sub-pos') {
+                cycleSub(action);
+                applySubStyle();
+                renderMenu('substyle');
+                menuTimer = setTimeout(() => renderMenu('main'), 600);
+            }
             else if (action === 'subtitle') {
                 setSubtitle(parseInt(item.dataset.val, 10));
                 renderMenu('subs');
@@ -1129,6 +1183,18 @@
             video.currentTime = Math.min(video.duration || 0, video.currentTime + step);
         });
 
+        // Previous / Next episode (asks the parent page to navigate)
+        const hasPrev = qp.get('hasPrev') === '1';
+        const hasNext = qp.get('hasNext') === '1';
+        if (!hasPrev) prevEpBtn.classList.add('hide');
+        if (!hasNext) nextEpBtn.classList.add('hide');
+        prevEpBtn.addEventListener('click', () => {
+            if (window.parent !== window) window.parent.postMessage({ type: 'player-nav', dir: -1 }, '*');
+        });
+        nextEpBtn.addEventListener('click', () => {
+            if (window.parent !== window) window.parent.postMessage({ type: 'player-nav', dir: 1 }, '*');
+        });
+
         // Play/Pause
         function setPlayingIcon(playing) {
             playBtn.innerHTML = playing
@@ -1186,18 +1252,33 @@
             }
         });
 
-        // Fullscreen
+        // Fullscreen (switches to landscape orientation on mobile)
+        const isMobileFs = () => window.matchMedia('(max-width: 768px)').matches;
+        async function lockLandscape() {
+            if (isMobileFs() && screen.orientation && screen.orientation.lock) {
+                try { await screen.orientation.lock('landscape'); } catch (e) { /* unsupported or already locked */ }
+            }
+        }
+        async function unlockOrientation() {
+            if (screen.orientation && screen.orientation.unlock) {
+                try { screen.orientation.unlock(); } catch (e) {}
+            }
+        }
         fullscreenBtn.addEventListener('click', () => {
             const el = playerContainer;
             if (!document.fullscreenElement) {
-                if (el.requestFullscreen) el.requestFullscreen();
-                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-                else if (el.msRequestFullscreen) el.msRequestFullscreen();
+                const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+                if (req) {
+                    Promise.resolve(req.call(el)).catch(() => {}).then(() => lockLandscape());
+                }
             } else {
-                if (document.exitFullscreen) document.exitFullscreen();
-                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-                else if (document.msExitFullscreen) document.msExitFullscreen();
+                const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                if (exit) Promise.resolve(exit.call(document)).catch(() => {});
+                unlockOrientation();
             }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) unlockOrientation();
         });
 
         // Keyboard shortcuts
@@ -1276,6 +1357,70 @@
             }
             showControls(false);
         });
+
+        // --- Subtitle style customization ---
+        const SUB_SIZE_OPTS = [['80%', 'Small'], ['100%', 'Medium'], ['130%', 'Large']];
+        const SUB_COLOR_OPTS = [['#ffffff', 'White'], ['#ffe066', 'Yellow'], ['#7ff3ff', 'Cyan'], ['#ff9ecf', 'Pink'], ['#b7ffb0', 'Green']];
+        const SUB_BG_OPTS = [['rgba(0,0,0,0)', 'None'], ['rgba(0,0,0,0.7)', 'Dark'], ['rgba(0,0,0,1)', 'Black'], ['rgba(255,255,255,0.85)', 'White']];
+        const SUB_STYLE_DEFAULTS = { size: '100%', color: '#ffffff', bg: 'rgba(0,0,0,0.7)', outline: true, pos: 'bottom' };
+        let subStyle = { ...SUB_STYLE_DEFAULTS };
+        try { Object.assign(subStyle, JSON.parse(localStorage.getItem('ak_subStyle') || '{}')); } catch (e) {}
+
+        function saveSubStyle() {
+            try { localStorage.setItem('ak_subStyle', JSON.stringify(subStyle)); } catch (e) {}
+        }
+        function sizeLabel() { return (SUB_SIZE_OPTS.find(o => o[0] === subStyle.size) || SUB_SIZE_OPTS[1])[1]; }
+        function colorLabel() { return (SUB_COLOR_OPTS.find(o => o[0] === subStyle.color) || SUB_COLOR_OPTS[0])[1]; }
+        function bgLabel() { return (SUB_BG_OPTS.find(o => o[0] === subStyle.bg) || SUB_BG_OPTS[1])[1]; }
+        function cycleSub(action) {
+            if (action === 'sub-size') {
+                const i = SUB_SIZE_OPTS.findIndex(o => o[0] === subStyle.size);
+                subStyle.size = SUB_SIZE_OPTS[(i + 1) % SUB_SIZE_OPTS.length][0];
+            } else if (action === 'sub-color') {
+                const i = SUB_COLOR_OPTS.findIndex(o => o[0] === subStyle.color);
+                subStyle.color = SUB_COLOR_OPTS[(i + 1) % SUB_COLOR_OPTS.length][0];
+            } else if (action === 'sub-bg') {
+                const i = SUB_BG_OPTS.findIndex(o => o[0] === subStyle.bg);
+                subStyle.bg = SUB_BG_OPTS[(i + 1) % SUB_BG_OPTS.length][0];
+            } else if (action === 'sub-outline') {
+                subStyle.outline = !subStyle.outline;
+            } else if (action === 'sub-pos') {
+                subStyle.pos = subStyle.pos === 'top' ? 'bottom' : 'top';
+            }
+            saveSubStyle();
+        }
+
+        let cueStyleEl = null;
+        function subCuePx() {
+            const scale = { '80%': 0.8, '100%': 1, '130%': 1.35 }[subStyle.size] || 1;
+            return Math.max(13, Math.round((video.videoHeight || 720) * 0.05 * scale));
+        }
+        function applySubStyle() {
+            if (!cueStyleEl) {
+                cueStyleEl = document.createElement('style');
+                cueStyleEl.id = 'cue-style';
+                document.head.appendChild(cueStyleEl);
+            }
+            const shadow = subStyle.outline
+                ? '0 0 2px #000, 0 0 2px #000, 1px 1px 2px #000, -1px -1px 2px #000'
+                : 'none';
+            const pos = subStyle.pos === 'top'
+                ? 'top: 8%; bottom: auto;'
+                : 'bottom: 8%; top: auto;';
+            cueStyleEl.textContent = `
+                #hls-video::cue {
+                    font-size: ${subCuePx()}px !important;
+                    color: ${subStyle.color} !important;
+                    background-color: ${subStyle.bg} !important;
+                    text-shadow: ${shadow} !important;
+                    ${pos}
+                }`;
+        }
+        function subStyleSummary() {
+            return sizeLabel() + ' · ' + colorLabel();
+        }
+        video.addEventListener('loadedmetadata', applySubStyle);
+        window.addEventListener('resize', applySubStyle);
 
         // --- Initialize ---
         initSubtitles();

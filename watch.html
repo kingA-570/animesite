@@ -1587,6 +1587,9 @@ function buildPlayerUrl(mediaUrl, opts = {}) {
     q.set('autoplay', settings.autoPlay ? '1' : '0');
     q.set('step', String(settings.skipTime));
     q.set('autoSkip', settings.autoSkip ? '1' : '0');
+    const epIdx = state.episodes.findIndex(ep => ep.num === state.currentEp);
+    q.set('hasPrev', epIdx > 0 ? '1' : '0');
+    q.set('hasNext', (epIdx >= 0 && epIdx < state.episodes.length - 1) ? '1' : '0');
     if (opts.skipIntro) q.set('skipIntro', `${opts.skipIntro.start}-${opts.skipIntro.end}`);
     if (opts.skipOutro) q.set('skipOutro', `${opts.skipOutro.start}-${opts.skipOutro.end}`);
     if (opts.subs) q.set('subs', JSON.stringify(opts.subs));
@@ -1757,6 +1760,10 @@ window.addEventListener('message', (e) => {
     if (d.type === 'player-progress') {
         savePlaying(d.current, d.duration);
         if (d.current > 30) markWatched(state.currentEp);
+        return;
+    }
+    if (d.type === 'player-nav') {
+        changeEpisode(d.dir === 1 ? 1 : -1);
         return;
     }
     if (d.type !== 'video-ended') return;
