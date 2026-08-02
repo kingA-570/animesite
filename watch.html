@@ -979,6 +979,7 @@ const state = {
     slug: '',
     title: '',
     poster: '',
+    info: null,
     episodes: [],
     servers: [],
     currentEp: null,
@@ -1365,6 +1366,21 @@ async function loadMiruroEpisodes(anikaitvError) {
         selectEpisode(target.num);
     } catch (e) {
         console.error('Miruro fallback failed:', e);
+        // Final fallback: both anikaitv and miruro are down, but we resolved
+        // AniList. Build a numeric episode list from AniList's episode count so
+        // the MEGA PLAY servers (which don't depend on anikaitv/miruro) still work.
+        const total = (state.info && state.info.episodes) || 0;
+        if (state.anilistId && total) {
+            const list = Array.from({ length: total }, (_, i) => ({ num: String(i + 1), title: 'Episode ' + (i + 1), miruro: true }));
+            state.episodes = list;
+            state.epSource = 'miruro';
+            renderEpisodes(list);
+            const slugEpMatch = (state.slug || '').match(/\/ep-(\d+)/);
+            const requested = slugEpMatch ? slugEpMatch[1] : (params.get('ep') || state.currentEp || '1');
+            const target = list.find(e => e.num === requested) || list[list.length - 1];
+            selectEpisode(target.num);
+            return;
+        }
         episodeGrid.innerHTML = `
             <div class="error-msg" style="grid-column:1/-1">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -1397,6 +1413,7 @@ function applyInfo(resolved) {
     }
     const info = resolved.info;
     if (!info) return;
+    state.info = info;
     state.poster = info.bannerImage || info.coverImage?.extraLarge || info.coverImage?.large || '';
     posterImg.src = info.coverImage?.extraLarge || info.coverImage?.large || '';
     infoTitle.textContent = info.title?.english || info.title?.romaji || resolved.title || '—';
