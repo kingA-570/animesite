@@ -1873,7 +1873,7 @@ function startMiruroSidecar() {
   }
   const { spawn } = require('child_process');
   const python = process.env.PYTHON || 'python';
-  console.log('\x1b[33m[MIRURO]\x1b[0m Spawning curl_cffi sidecar with', python);
+  console.log('\x1b[33m[MIRURO]\x1b[0m Spawning miruro sidecar (playwright/curl_cffi) with', python);
   const child = spawn(python, [path.join(ROOT, 'miruro_sidecar.py')], {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,

@@ -1,9 +1,18 @@
-import base64
 import json
 import os
+import queue
+import threading
+import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlsplit
 
 from curl_cffi import requests
+
+try:
+    from playwright.sync_api import sync_playwright
+    HAS_PLAYWRIGHT = True
+except Exception:
+    HAS_PLAYWRIGHT = False
 
 PORT = int(os.environ.get("MIRURO_SIDECAR_PORT", "8765"))
 PIPE_URL = os.environ.get("MIRURO_PIPE_URL", "https://www.miruro.to/api/secure/pipe")
@@ -29,6 +38,122 @@ HEADERS = {
     "sec-ch-ua-platform": '"Windows"',
 }
 
+ORIGIN = f"{urlsplit(PIPE_URL).scheme}://{urlsplit(PIPE_URL).netloc}"
+
+_browser_state = {"warmed": False, "last_warm": 0, "error": None, "started": False}
+_job_q = queue.Queue()
+_RESP_OK = None
+
+_FETCH_JS = """async ({ url }) => {
+    const r = await fetch(url, { redirect: 'follow' });
+    const text = await r.text();
+    const hdrs = {};
+    r.headers.forEach((v, k) => { hdrs[k] = v; });
+    return { status: r.status, body: text, headers: hdrs };
+}"""
+
+
+def _warm(page, ctx):
+    try:
+        page.goto(ORIGIN + "/", wait_until="domcontentloaded", timeout=60000)
+    except Exception:
+        pass
+    for _ in range(25):
+        names = [c["name"] for c in ctx.cookies()]
+        if "cf_clearance" in names:
+            return True
+        page.wait_for_timeout(2000)
+    return False
+
+
+def _fetch_on_page(page, ctx, url):
+    if time.time() - _browser_state["last_warm"] > 12 * 60:
+        _browser_state["warmed"] = False
+    if not _browser_state["warmed"]:
+        ok = _warm(page, ctx)
+        _browser_state["warmed"] = ok
+        _browser_state["last_warm"] = time.time()
+        _browser_state["error"] = None if ok else "Cloudflare challenge did not clear"
+        if not ok:
+            raise RuntimeError(_browser_state["error"])
+    result = page.evaluate(_FETCH_JS, {"url": url})
+    if result.get("status") == 403:
+        # token expired or a fresh challenge was issued — re-solve once
+        _browser_state["warmed"] = False
+        if _warm(page, ctx):
+            _browser_state["warmed"] = True
+            _browser_state["last_warm"] = time.time()
+            result = page.evaluate(_FETCH_JS, {"url": url})
+    return result
+
+
+def _browser_worker():
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(
+        headless=True,
+        args=[
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--mute-audio",
+        ],
+    )
+    ctx = browser.new_context(user_agent=USER_AGENT, locale="en-US")
+    page = ctx.new_page()
+    _browser_state["started"] = True
+    # Warm the Cloudflare challenge up front so the first request is fast.
+    _browser_state["warmed"] = _warm(page, ctx)
+    _browser_state["last_warm"] = time.time()
+    _browser_state["error"] = None if _browser_state["warmed"] else "Cloudflare challenge did not clear"
+    if not _browser_state["warmed"]:
+        print("[miruro_sidecar] WARNING initial Cloudflare warmup failed", flush=True)
+    else:
+        print("[miruro_sidecar] Cloudflare challenge cleared (cf_clearance set)", flush=True)
+    while True:
+        job = _job_q.get()
+        if job is None:
+            break
+        url, ev, holder = job
+        try:
+            holder["result"] = _fetch_on_page(page, ctx, url)
+        except Exception as exc:
+            holder["error"] = str(exc)
+        finally:
+            ev.set()
+    browser.close()
+
+
+def _start_browser_worker():
+    if not HAS_PLAYWRIGHT or _browser_state["started"]:
+        return
+    t = threading.Thread(target=_browser_worker, daemon=True)
+    t.start()
+
+
+def browser_fetch(url):
+    ev = threading.Event()
+    holder = {}
+    _job_q.put((url, ev, holder))
+    if not ev.wait(timeout=120):
+        raise RuntimeError("browser request timed out")
+    if "error" in holder:
+        raise RuntimeError(holder["error"])
+    return holder["result"]
+
+
+def curl_fetch(url):
+    resp = requests.get(url, headers=HEADERS, impersonate="chrome136", timeout=30)
+    return {
+        "status": resp.status_code,
+        "body": resp.text if resp.status_code == 200 else resp.text[:300],
+        "headers": {"x-obfuscated": resp.headers.get("x-obfuscated") or ""},
+    }
+
+
+def transport_available():
+    return HAS_PLAYWRIGHT
+
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -45,7 +170,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self._json(200, {"ok": True})
+            self._json(200, {
+                "ok": True,
+                "transport": "browser" if transport_available() else "curl_cffi",
+                "browser_error": _browser_state["error"],
+                "started": _browser_state["started"],
+            })
             return
         if self.path == "/jwks":
             self._handle_jwks()
@@ -54,10 +184,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_jwks(self):
         try:
-            resp = requests.get(JWKS_URL, headers=HEADERS, impersonate="chrome136", timeout=20)
-            version = resp.headers.get("x-protocol-version") or ""
-            body = resp.text if resp.status_code == 200 else resp.text[:300]
-            self._json(200, {"status": resp.status_code, "body": body, "version": version})
+            if transport_available():
+                res = browser_fetch(JWKS_URL)
+            else:
+                res = curl_fetch(JWKS_URL)
+            version = ""
+            if res.get("status") == 200:
+                try:
+                    version = json.loads(res.get("body") or "{}").get("version", "")
+                except Exception:
+                    pass
+            self._json(200, {
+                "status": res.get("status"),
+                "body": res.get("body"),
+                "version": version,
+                "browser_error": _browser_state["error"],
+            })
         except Exception as exc:
             self._json(200, {"status": 0, "error": str(exc)})
 
@@ -80,23 +222,27 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "missing e"})
                 return
             url = f"{PIPE_URL}?e={e}"
-            resp = requests.get(url, headers=HEADERS, impersonate="chrome136", timeout=30)
-            body = resp.text if resp.status_code == 200 else resp.text[:300]
-            self._json(
-                200,
-                {
-                    "status": resp.status_code,
-                    "body": body,
-                    "x_obfuscated": resp.headers.get("x-obfuscated") or "",
-                },
-            )
+            if transport_available():
+                res = browser_fetch(url)
+            else:
+                res = curl_fetch(url)
+            self._json(200, {
+                "status": res.get("status"),
+                "body": res.get("body") or "",
+                "x_obfuscated": res.get("headers", {}).get("x-obfuscated") or "",
+            })
         except Exception as exc:
             self._json(200, {"status": 0, "error": str(exc)})
 
 
 def main():
+    _start_browser_worker()
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"miruro_sidecar listening on 127.0.0.1:{PORT}", flush=True)
+    print(
+        f"miruro_sidecar listening on 127.0.0.1:{PORT} "
+        f"(transport={'browser(playwright)' if transport_available() else 'curl_cffi'})",
+        flush=True,
+    )
     server.serve_forever()
 
 
