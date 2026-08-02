@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Watch Anime - AnimeKai</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="themes.css">
@@ -45,7 +45,8 @@
             .current-episode-name { max-width: 40vw; font-size: 0.78rem; }
             .ctrl { padding: 6px 8px; font-size: 0.72rem; }
             .ctrl.check label { font-size: 0.68rem; }
-            .controls-right { gap: 4px; }
+            .controls-right { gap: 4px; flex-wrap: wrap; }
+            .ctrl.check { padding: 4px 6px 4px 8px; }
             #player-wrapper { border-radius: 10px; }
             .info-sidebar { display: flex; align-items: stretch; }
             .info-sidebar .poster-wrap { width: 104px; aspect-ratio: auto; flex-shrink: 0; }
@@ -57,6 +58,11 @@
             .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); }
             .current-episode-name { max-width: 36vw; }
             .ep-sidebar { gap: 12px; }
+            .ctrl.check { padding: 4px; }
+            .ctrl.check input[type="checkbox"] { width: 26px; height: 15px; }
+            .ctrl.check input[type="checkbox"]::after { top: 1.5px; left: 1.5px; width: 12px; height: 12px; }
+            .ctrl.check input[type="checkbox"]:checked::after { transform: translateX(11px); }
+            .ctrl.check label { font-size: 0.62rem; }
         }
 
         /* Player Wrapper */
