@@ -5,7 +5,7 @@
         <meta charset="utf-8"/>
         <meta http-equiv="content-language" content="en"/>
         <meta name="description" content="AnimeVerse is one of the best places to watch anime for free. Enjoy ad-free sub and dub episodes without creating an account. Jump in and start streaming now.">
-        <link rel="shortcut icon" href="TITLEBAR.PNG" type="image/x-icon"/>
+        <link rel="shortcut icon" href="img/TITLEBAR.PNG" type="image/x-icon"/>
         <meta property="og:title" content="AnimeVerse - Watch Anime Online, Free Anime Streaming"/>
         <meta property="og:image" content="/assets/images/share.jpg"/>
         <meta name="robots" content="index, follow">
@@ -33,9 +33,9 @@
         <link rel="preconnect" href="https://fonts.googleapis.com/"/>
         <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin/>
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Nunito:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-        <link rel="stylesheet" href="style.css?v=2"/>
-        <link rel="stylesheet" href="themes.css"/>
-        <script type="text/javascript" src="theme.js"></script>
+        <link rel="stylesheet" href="css/style.css?v=2"/>
+        <link rel="stylesheet" href="css/themes.css"/>
+        <script type="text/javascript" src="js/theme.js"></script>
         <style>
             /* ============ Header / nav fixes (miruro-style) ============ */
             header {
@@ -421,11 +421,12 @@
                 background-repeat: no-repeat;
             }
 
-            /* ============ Homepage polish: bigger hero ============ */
+            /* ============ Homepage polish: bigger hero, no crop ============ */
+            /* 56.25% = exact 16:9, so wide banners fill the panel edge-to-edge
+               without being cropped. Portrait posters keep contain + blur fill. */
             #hotest { margin: 1.2rem 0 2.6rem; }
-            #hotest .item .image .hero-img { padding-bottom: 50%; }
-            @media (max-width: 1199.98px) { #hotest .item { padding-bottom: 46%; } }
-            @media (max-width: 767.98px) { #hotest .item { padding-bottom: 74%; } }
+            #hotest .item .image .hero-img { padding-bottom: 56.25%; }
+            @media (max-width: 767.98px) { #hotest .item .image .hero-img { padding-bottom: 74%; } }
 
             /* ============ Recently Updated cards — bigger + polished ============ */
             #recent-update .head { margin-bottom: 1rem; }
@@ -553,12 +554,12 @@
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tooltipster/4.0.0/js/tooltipster.bundle.min.js" defer></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/5.4.4/js/swiper.min.js" defer></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js" defer></script>
-        <script type="text/javascript" src="main.js" defer></script>
+        <script type="text/javascript" src="js/main.js" defer></script>
         <meta name="google-site-verification" content="fbVlhaHJwdE2lu5CMmQZyxekpItvaoAtCHWo7qTZMMU"/>
     </head>
     <body class="home">
         <video class="bg-video" autoplay muted loop playsinline preload="auto">
-            <source src="12.mp4" type="video/mp4"/>
+            <source src="img/12.mp4" type="video/mp4"/>
         </video>
         <div class="bg-video-overlay"></div>
         <div id="wrapper">
@@ -891,7 +892,7 @@
                             </div>
                             <div class="logo">
                                 <a href="/home">
-                                    <img src='logo.png' alt='AnimeVerse'/>
+                                    <img src='img/logo.png' alt='AnimeVerse'/>
                                 </a>
                             </div>
                             <div id="search" class="new-search">
@@ -2568,7 +2569,7 @@
                         <div class="col-lg-5">
                             <div class="logos">
                                 <div class="logo">
-                                    <img src='logo.png' alt='AnimeVerse'/>
+                                    <img src='img/logo.png' alt='AnimeVerse'/>
                                 </div>
                             </div>
                             <div class="inline-links">

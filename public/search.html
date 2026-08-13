@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Search - AnimeKai</title>
-    <link rel="stylesheet" href="style.css?v=2">
-    <link rel="stylesheet" href="themes.css">
-    <script type="text/javascript" src="theme.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="stylesheet" href="css/themes.css">
+    <script type="text/javascript" src="js/theme.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -226,7 +226,7 @@
                     </div>
                     <div class="logo">
                         <a href="/home">
-                            <img src='logo.png' alt='AnimeKai'/>
+                            <img src='img/logo.png' alt='AnimeKai'/>
                         </a>
                     </div>
                     <div id="search">
@@ -451,9 +451,18 @@
         }
     })();
 
-    // ============ SEARCH RESULTS ============
+    // ============ SEARCH + BROWSE RESULTS ============
+    // ?q= full-text search; ?status=/?genre=/?format=/?letter=/?sort= browse
     (function () {
-        const q = new URLSearchParams(window.location.search).get('q') || '';
+        const sp = new URLSearchParams(window.location.search);
+        const q = sp.get('q') || '';
+        const status = sp.get('status') || '';
+        const genre = sp.get('genre') || '';
+        const format = sp.get('format') || '';
+        const letter = sp.get('letter') || '';
+        const sort = sp.get('sort') || '';
+        const browse = !!(status || genre || format || letter || sort);
+
         const grid = document.getElementById('resultsGrid');
         const loading = document.getElementById('resultsLoading');
         const empty = document.getElementById('resultsEmpty');
@@ -464,20 +473,19 @@
         const pgNext = document.getElementById('pgNext');
         const pgInfo = document.getElementById('pgInfo');
         const PER_PAGE = 24;
+        const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
         const searchBox = document.querySelector('#search input');
         if (searchBox) searchBox.value = q;
         if (typeof updateSearchBox === 'function') updateSearchBox();
 
-        if (!q) {
+        if (!q && !browse) {
             loading.style.display = 'none';
             empty.style.display = 'block';
             empty.innerHTML = '<p>Type a keyword in the search bar above to find anime.</p>';
             title.textContent = 'Search';
             return;
         }
-
-        title.innerHTML = 'Results for <em>' + q.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) + '</em>';
 
         let all = [];
         let page = 0;
@@ -521,14 +529,44 @@
             if (page < pages - 1) { page++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         });
 
-        fetch('/api/anime/search?q=' + encodeURIComponent(q))
+        let endpoint;
+        if (browse) {
+            const bp = new URLSearchParams();
+            if (genre) bp.set('genre', genre);
+            if (status) bp.set('status', status);
+            if (format) bp.set('format', format);
+            if (letter) bp.set('letter', letter);
+            if (sort) bp.set('sort', sort);
+            endpoint = '/api/browse?' + bp.toString();
+            const labels = {
+                'RELEASING': 'Ongoing', 'FINISHED': 'Completed',
+                'NOT_YET_RELEASED': 'Upcoming', 'HIATUS': 'Hiatus', 'CANCELLED': 'Cancelled',
+            };
+            let label = '';
+            if (genre) label = 'Genre: <em>' + esc(genre) + '</em>';
+            else if (status) label = 'Status: <em>' + esc(labels[status] || status) + '</em>';
+            else if (format) label = 'Type: <em>' + esc(format) + '</em>';
+            else if (letter) label = 'A–Z: <em>' + esc(letter.toUpperCase()) + '</em>';
+            else if (sort === 'recent') label = '<em>New Releases</em>';
+            else if (sort === 'updated') label = '<em>Latest Updated</em>';
+            else if (sort === 'popular') label = '<em>Most Viewed</em>';
+            else if (sort === 'score') label = '<em>Top Rated</em>';
+            title.innerHTML = label || 'Browse';
+        } else {
+            endpoint = '/api/anime/search?q=' + encodeURIComponent(q);
+            title.innerHTML = 'Results for <em>' + esc(q) + '</em>';
+        }
+
+        fetch(endpoint)
             .then(r => r.json())
             .then(data => {
                 loading.style.display = 'none';
                 all = data.results || [];
                 if (!all.length) {
                     empty.style.display = 'block';
-                    empty.innerHTML = '<p>No results found for &quot;' + q.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) + '&quot;. Try a different keyword.</p>';
+                    empty.innerHTML = browse
+                        ? '<p>No anime found for this filter. Try a different one.</p>'
+                        : '<p>No results found for &quot;' + esc(q) + '&quot;. Try a different keyword.</p>';
                     countEl.textContent = '0 results';
                     return;
                 }
@@ -540,7 +578,7 @@
             .catch(err => {
                 loading.style.display = 'none';
                 empty.style.display = 'block';
-                empty.innerHTML = '<p>Something went wrong while searching. Please try again.</p>';
+                empty.innerHTML = '<p>Something went wrong while loading results. Please try again.</p>';
                 console.warn('[Search] Error:', err);
             });
     })();

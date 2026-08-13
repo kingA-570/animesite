@@ -9,6 +9,7 @@ const zlib = require('zlib');
 // ========================
 const PORT = process.env.PORT || 3000;
 const ROOT = process.cwd();
+const PUBLIC_DIR = path.join(ROOT, 'public');
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
 // Optional access protection: if ACCESS_TOKEN is set, every page/API requires
@@ -661,6 +662,197 @@ async function anilistSearch(queryTitle) {
   return media;
 }
 
+// Browse AniList by status / genre / type / A-Z letter / sort.
+// The URL slugs used by the site (e.g. /genre/isekai, /status/ongoing) don't
+// all map 1:1 to AniList genres, so tag-style filters fall back to tags.
+const GENRE_MAP = {
+  action: 'Action', adventure: 'Adventure', comedy: 'Comedy', drama: 'Drama',
+  ecchi: 'Ecchi', fantasy: 'Fantasy', horror: 'Horror', josei: 'Josei',
+  music: 'Music', mystery: 'Mystery', psychological: 'Psychological',
+  romance: 'Romance', 'sci-fi': 'Sci-Fi', 'slice-of-life': 'Slice of Life',
+  shoujo: 'Shoujo', shounen: 'Shounen', seinen: 'Seinen', sports: 'Sports',
+  supernatural: 'Supernatural', thriller: 'Thriller', 'mahou-shoujo': 'Mahou Shoujo',
+  mecha: 'Mecha',
+};
+const TAG_MAP = {
+  'boys-love': 'Boys Love', 'girls-love': 'Girls Love',
+  'shoujo-ai': 'Girls Love', 'shounen-ai': 'Boys Love',
+  dementia: 'Dementia', demons: 'Demons', erotica: 'Erotica', game: 'Video Games',
+  harem: 'Harem', historical: 'Historical', isekai: 'Isekai', kids: 'Kids',
+  magic: 'Magic', 'martial-arts': 'Martial Arts', military: 'Military',
+  parody: 'Parody', police: 'Police', samurai: 'Samurai', school: 'School',
+  space: 'Space', 'super-power': 'Super Power', suspense: 'Suspense',
+  vampire: 'Vampire',
+};
+const BROWSE_SORTS = {
+  score: 'SCORE_DESC',
+  popular: 'POPULARITY_DESC',
+  recent: 'START_DATE_DESC',
+  updated: 'UPDATED_AT_DESC',
+};
+const browseCache = new Map();
+const BROWSE_TTL = 30 * 60 * 1000;
+
+// A-Z index: built in the background from the most popular anime (which span
+// every letter), so any letter resolves quickly without scanning the whole
+// romaji-sorted catalog (which would take thousands of pages to reach 'Z').
+const azIndex = new Map();
+let azIndexReady = false;
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function buildAzIndex() {
+  try {
+    const gql = `query ($perPage: Int, $page: Int) {
+      Page(perPage: $perPage, page: $page) {
+        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false) {
+          id
+          idMal
+          title { romaji english native }
+          coverImage { extraLarge large color }
+          bannerImage
+          format
+          episodes
+          status
+          seasonYear
+          season
+          averageScore
+          meanScore
+          genres
+          description
+          nextAiringEpisode { episode airingAt timeUntilAiring }
+          startDate { year month day }
+        }
+      }
+    }`;
+    const pool = [];
+    for (let page = 1; page <= 60; page++) {
+      const response = await fetch(ANILIST_GRAPHQL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: gql, variables: { perPage: 50, page } }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (response.status !== 200) break;
+      const json = await response.json();
+      const batch = json?.data?.Page?.media || [];
+      if (!batch.length) break;
+      pool.push(...batch);
+      await sleepMs(300);
+    }
+    azIndex.clear();
+    for (const m of pool) {
+      const t = (m.title?.romaji || m.title?.english || m.title?.native || '').trim();
+      const first = t.replace(/^["'(\[]/, '').charAt(0).toLowerCase();
+      const key = !/[a-z0-9]/.test(first) ? 'other' : /[0-9]/.test(first) ? '0-9' : first;
+      if (!azIndex.has(key)) azIndex.set(key, []);
+      const list = azIndex.get(key);
+      if (list.length < 300) list.push(m);
+    }
+    azIndexReady = true;
+    log('AZ_INDEX', '-', 200, `built from ${pool.length} titles`);
+  } catch (err) {
+    log('AZ_INDEX_ERR', '-', 500, err.message);
+  }
+}
+// Start the background build shortly after boot; retry in an hour on failure.
+setTimeout(() => { buildAzIndex(); }, 2000);
+setInterval(() => { if (!azIndexReady) buildAzIndex(); }, 60 * 60 * 1000);
+
+async function anilistBrowse({ status, genre, format, letter = '', sort = 'score' } = {}) {
+  const cacheKey = JSON.stringify({ status, genre, format, letter, sort });
+  if (browseCache.has(cacheKey)) return browseCache.get(cacheKey);
+
+  const fields = `
+        id
+        idMal
+        title { romaji english native }
+        coverImage { extraLarge large color }
+        bannerImage
+        format
+        episodes
+        status
+        seasonYear
+        season
+        averageScore
+        meanScore
+        genres
+        description
+        nextAiringEpisode { episode airingAt timeUntilAiring }
+        startDate { year month day }`;
+
+  let media;
+  if (letter) {
+    const target = letter.toLowerCase();
+    const key = target === 'other' || target === '0-9' ? target : /[a-z]/.test(target) ? target : 'other';
+    if (azIndexReady && azIndex.has(key)) {
+      media = azIndex.get(key);
+    } else {
+      // Index not ready yet (or missing letter) — fall back to a quick
+      // popularity scan filtered to the letter.
+      const gql = `query ($perPage: Int, $page: Int) {
+        Page(perPage: $perPage, page: $page) {
+          media(sort: POPULARITY_DESC, type: ANIME, isAdult: false) {
+            ${fields}
+          }
+        }
+      }`;
+      const collected = [];
+      for (let page = 1; page <= 6 && collected.length < 300; page++) {
+        const response = await fetch(ANILIST_GRAPHQL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ query: gql, variables: { perPage: 50, page } }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.status !== 200) break;
+        const json = await response.json();
+        const batch = json?.data?.Page?.media || [];
+        if (!batch.length) break;
+        for (const m of batch) {
+          const t = (m.title?.romaji || m.title?.english || m.title?.native || '').trim();
+          const first = t.replace(/^["'(\[]/, '').charAt(0).toLowerCase();
+          const inKey = !/[a-z0-9]/.test(first) ? 'other' : /[0-9]/.test(first) ? '0-9' : first;
+          if (inKey === key) collected.push(m);
+        }
+        await sleepMs(300);
+      }
+      media = collected;
+    }
+  } else {
+    const genreName = GENRE_MAP[genre] || null;
+    const tagName = TAG_MAP[genre] || null;
+    // Only emit filter args that have real values — AniList returns an empty
+    // list when null-valued filters are combined with type/isAdult.
+    const args = [`sort: ${BROWSE_SORTS[sort] || BROWSE_SORTS.score}`, 'type: ANIME', 'isAdult: false'];
+    const varDefs = [];
+    const vars = { perPage: 300 };
+    if (genreName) { vars.genre = genreName; varDefs.push('$genre: String'); args.push('genre: $genre'); }
+    if (tagName) { vars.tag = tagName; varDefs.push('$tag: String'); args.push('tag: $tag'); }
+    if (status) { vars.status = status; varDefs.push('$status: MediaStatus'); args.push('status: $status'); }
+    if (format) { vars.format = format; varDefs.push('$format: MediaFormat'); args.push('format: $format'); }
+    const gql = `query ($perPage: Int${varDefs.length ? ', ' + varDefs.join(', ') : ''}) {
+      Page(perPage: $perPage) {
+        media(${args.join(', ')}) {
+          ${fields}
+        }
+      }
+    }`;
+    const response = await fetch(ANILIST_GRAPHQL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query: gql, variables: vars }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (response.status !== 200) throw new Error(`AniList browse failed (${response.status})`);
+    const json = await response.json();
+    media = json?.data?.Page?.media || [];
+  }
+
+  browseCache.set(cacheKey, media);
+  setTimeout(() => browseCache.delete(cacheKey), BROWSE_TTL);
+  return media;
+}
+
 async function anilistRandom() {
   const gql = `query ($page: Int) {
     Page(page: $page, perPage: 1) {
@@ -789,11 +981,11 @@ async function serveStatic(reqUrl, res, req) {
       return res.end();
     }
 
-    const filePath = path.join(ROOT, decodeURIComponent(pathname));
+    const filePath = path.join(PUBLIC_DIR, decodeURIComponent(pathname));
     const resolvedPath = path.resolve(filePath);
 
     // Security: prevent directory traversal
-    if (!resolvedPath.startsWith(ROOT)) {
+    if (!resolvedPath.startsWith(PUBLIC_DIR)) {
       res.writeHead(403, { 'Content-Type': 'text/plain' });
       return res.end('Forbidden');
     }
@@ -1602,6 +1794,26 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ========== ROUTE: /api/browse (status/genre/type/A-Z listing) ==========
+    if (reqUrl.pathname === '/api/browse') {
+      const status = reqUrl.searchParams.get('status') || '';
+      const genre = reqUrl.searchParams.get('genre') || '';
+      const format = reqUrl.searchParams.get('format') || '';
+      const letter = reqUrl.searchParams.get('letter') || '';
+      const sort = reqUrl.searchParams.get('sort') || 'score';
+      try {
+        const media = await anilistBrowse({ status, genre, format, letter, sort });
+        const results = media.map(formatAnilistForHome);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[BROWSE] ${results.length} results`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ results, total: results.length }));
+      } catch (err) {
+        log('BROWSE_ERR', reqUrl.pathname + reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, results: [] }));
+      }
+    }
+
     // ========== ROUTE: /proxy (generic URL proxy) ==========
     if (reqUrl.pathname === '/proxy') {
       log(req.method, reqUrl.pathname + reqUrl.search, 200, '[PROXY]');
@@ -1925,6 +2137,68 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
+    }
+
+    // ========== ROUTE: browse redirects (/status/, /genre/, /type/, /az-list/) ==========
+    const STATUS_SLUGS = {
+      'ongoing': 'RELEASING', 'currently-airing': 'RELEASING',
+      'completed': 'FINISHED', 'finished-airing': 'FINISHED',
+      'not-yet-aired': 'NOT_YET_RELEASED', 'hiatus': 'HIATUS', 'cancelled': 'CANCELLED',
+    };
+    const FORMAT_SLUGS = {
+      'tv': 'TV', 'tv-short': 'TV_SHORT', 'movie': 'MOVIE', 'special': 'SPECIAL',
+      'tv-special': 'SPECIAL', 'ova': 'OVA', 'ona': 'ONA', 'music': 'MUSIC',
+    };
+    let pathMatch = reqUrl.pathname.match(/^\/status\/([a-z0-9-]+)$/);
+    if (pathMatch && STATUS_SLUGS[pathMatch[1]] !== undefined) {
+      log(req.method, reqUrl.pathname, 302, `[BROWSE] status=${STATUS_SLUGS[pathMatch[1]]}`);
+      res.writeHead(302, { Location: `/search?status=${STATUS_SLUGS[pathMatch[1]]}` });
+      return res.end();
+    }
+    pathMatch = reqUrl.pathname.match(/^\/genre\/([a-z0-9-]+)$/);
+    if (pathMatch) {
+      log(req.method, reqUrl.pathname, 302, `[BROWSE] genre=${pathMatch[1]}`);
+      res.writeHead(302, { Location: `/search?genre=${encodeURIComponent(pathMatch[1])}` });
+      return res.end();
+    }
+    pathMatch = reqUrl.pathname.match(/^\/type\/([a-z0-9-]+)$/);
+    if (pathMatch) {
+      const fmt = FORMAT_SLUGS[pathMatch[1]];
+      if (fmt) {
+        log(req.method, reqUrl.pathname, 302, `[BROWSE] format=${fmt}`);
+        res.writeHead(302, { Location: `/search?format=${fmt}` });
+      } else {
+        log(req.method, reqUrl.pathname, 302, '[BROWSE] all types');
+        res.writeHead(302, { Location: '/search?sort=score' });
+      }
+      return res.end();
+    }
+    pathMatch = reqUrl.pathname.match(/^\/az-list(?=$|\/)(?:\/([A-Za-z0-9-]*))?$/);
+    if (pathMatch && reqUrl.pathname.startsWith('/az-list')) {
+      const letter = pathMatch[1] || '';
+      if (!letter || letter.toLowerCase() === 'all') {
+        log(req.method, reqUrl.pathname, 302, '[BROWSE] all (score)');
+        res.writeHead(302, { Location: '/search?sort=score' });
+      } else {
+        log(req.method, reqUrl.pathname, 302, `[BROWSE] letter=${letter}`);
+        res.writeHead(302, { Location: `/search?letter=${encodeURIComponent(letter)}` });
+      }
+      return res.end();
+    }
+    if (reqUrl.pathname === '/new-release' || reqUrl.pathname === '/new-releases') {
+      log(req.method, reqUrl.pathname, 302, '[BROWSE] sort=recent');
+      res.writeHead(302, { Location: '/search?sort=recent' });
+      return res.end();
+    }
+    if (reqUrl.pathname === '/latest-updated') {
+      log(req.method, reqUrl.pathname, 302, '[BROWSE] sort=updated');
+      res.writeHead(302, { Location: '/search?sort=updated' });
+      return res.end();
+    }
+    if (reqUrl.pathname === '/most-viewed') {
+      log(req.method, reqUrl.pathname, 302, '[BROWSE] sort=popular');
+      res.writeHead(302, { Location: '/search?sort=popular' });
+      return res.end();
     }
 
     // ========== ROUTE: /random (redirect to a random anime) ==========
