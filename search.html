@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Search - AnimeKai</title>
+    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="themes.css">
+    <script type="text/javascript" src="theme.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Nunito', sans-serif; background: var(--c-bg, #0b0e1a); color: var(--c-text, #fff); min-height: 100vh; }
+
+        /* ============ Miruro-style header search ============ */
+        header .wrapper { gap: 12px; }
+        #search { flex-grow: 1; display: flex; justify-content: center; min-width: 0; }
+        #search form {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 560px;
+            height: 40px;
+            padding: 0 8px 0 6px;
+            background: var(--c-surface-3);
+            border: 1px solid var(--c-border);
+            border-radius: 999px;
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        #search form:focus-within {
+            border-color: var(--c-accent);
+            background: var(--c-surface);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
+        }
+        #search form button { order: -1; font-size: 1.05rem; color: var(--c-text-3); cursor: pointer; }
+        #search form button:hover { color: var(--c-text); }
+        #search form input {
+            order: 0;
+            flex: 1;
+            min-width: 0;
+            height: 100%;
+            padding: 0 4px;
+            font-size: 0.95rem;
+            color: var(--c-text);
+            background: transparent;
+        }
+        #search form input::placeholder { color: var(--c-text-3); }
+        #search form .s-clear {
+            order: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            font-size: 0.85rem;
+            border-radius: 50%;
+            color: var(--c-text-3);
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+        #search form .s-clear:hover { color: var(--c-text); background: var(--c-hover); }
+        #search form.has-value .s-clear { display: flex; }
+        #search form .tip { display: none !important; }
+
+        #search .search-popup {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            padding-top: 0;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 14px;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            font-size: 0.95rem;
+            line-height: normal;
+            z-index: 80;
+        }
+        #search.search-open .search-popup { display: block !important; }
+        #search .search-popup .s-close {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            font-size: 0.8rem;
+            color: var(--c-text-3);
+            cursor: pointer;
+            z-index: 2;
+        }
+        #search .search-popup .s-close:hover { color: var(--c-accent); }
+        #search .search-popup .body { padding: 6px; max-height: 380px; overflow-y: auto; }
+        #search .search-popup .body .no-result { padding: 18px 12px; text-align: center; color: var(--c-text-3); font-size: 0.9rem; }
+        #search .search-popup .body .items .item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px 10px;
+            border-radius: 10px;
+            transition: background 0.12s;
+        }
+        #search .search-popup .body .items .item:hover,
+        #search .search-popup .body .items .item.active { background: var(--c-hover); }
+        #search .search-popup .body .items .item .poster {
+            width: 40px;
+            height: 54px;
+            flex: 0 0 40px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--c-surface-3);
+        }
+        #search .search-popup .body .items .item .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #search .search-popup .body .items .item .info { flex: 1; min-width: 0; }
+        #search .search-popup .body .items .item .name {
+            display: block;
+            color: var(--c-text-bright);
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #search .search-popup .body .items .item:hover .name { color: var(--c-accent); }
+        #search .search-popup .body .items .item .meta { color: var(--c-text-3); font-size: 0.75rem; margin-top: 2px; }
+        #search .search-popup .foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--c-surface-2);
+            border-top: 1px solid var(--c-border);
+            color: var(--c-text-3);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        #search .search-popup .foot .hint { white-space: nowrap; }
+        #search .search-popup .foot .hint kbd {
+            font-family: inherit;
+            padding: 1px 6px;
+            border-radius: 5px;
+            border: 1px solid var(--c-border);
+            background: var(--c-surface-3);
+            color: var(--c-text-2);
+            font-size: 0.72rem;
+        }
+        #search .search-popup .foot .more { float: none; white-space: nowrap; color: var(--c-accent); font-weight: 600; }
+        #search .search-popup .foot .more:hover { color: var(--c-text-bright); }
+
+        @media (min-width: 1200px) {
+            #search .search-popup .s-close { display: block; }
+        }
+        @media (max-width: 1199.98px) {
+            #search .search-popup {
+                padding-top: 0 !important;
+                top: calc(100% + 8px) !important;
+                border-radius: 12px !important;
+            }
+            #search .search-popup .foot .hint { display: none; }
+        }
+
+        /* ============ Results page ============ */
+        .search-page { max-width: 1500px; margin: 0 auto; padding: 24px 20px 48px; }
+        .search-page .result-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .search-page .result-head h1 { font-size: 1.35rem; font-weight: 800; color: var(--c-text-bright); }
+        .search-page .result-head h1 em { color: var(--c-accent); font-style: normal; }
+        .search-page .result-head .count { color: var(--c-text-3); font-size: 0.85rem; }
+        .search-page .ani.items { display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px 14px; margin: 0; }
+        .search-page .ani.items .item { width: 100%; float: none; padding: 0; margin: 0; min-width: 0; }
+        @media (max-width: 1400px) { .search-page .ani.items { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 1100px) { .search-page .ani.items { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 700px) { .search-page .ani.items { grid-template-columns: repeat(2, 1fr); } }
+
+        .search-page .empty,
+        .search-page .loading-msg {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--c-text-3);
+            font-size: 1rem;
+        }
+        .search-page .loading-msg .spinner {
+            width: 40px; height: 40px; margin: 0 auto 14px;
+            border: 3px solid var(--c-surface-3); border-top-color: var(--c-accent);
+            border-radius: 50%; animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .search-page .paging {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 28px;
+            font-size: 0.9rem;
+            color: var(--c-text-3);
+        }
+        .search-page .paging .pg-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            border: 1px solid var(--c-border);
+            background: var(--c-surface-2);
+            color: var(--c-text-2);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+        }
+        .search-page .paging .pg-btn:hover:not(.disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+        .search-page .paging .pg-btn.disabled { opacity: 0.35; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="wrapper align-items-center">
+                <div class="start d-flex">
+                    <div id="menu-toggler">
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </div>
+                    <div class="logo">
+                        <a href="/home">
+                            <img src='logo.png' alt='AnimeKai'/>
+                        </a>
+                    </div>
+                    <div id="search">
+                        <form method="get" autocomplete="off" action="/search">
+                            <button type="submit" aria-label="Search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                            <input type="text" name="q" placeholder="Search anime..." aria-label="Search anime"/>
+                            <button type="button" class="s-clear" aria-label="Clear search" tabindex="-1">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <div class="search-popup">
+                                <div class="s-close">Clear</div>
+                                <div class="inner">
+                                    <div class="body"><div class="items"></div></div>
+                                    <div class="foot">
+                                        <span class="hint">Press <kbd>Enter</kbd> to see all results</span>
+                                        <a class="more" href="#" style="display: none">
+                                            View all results <i class="fas fa-long-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="end d-flex justify-content-between">
+                    <div id="quick-menu" class="d-flex justify-content-around">
+                        <a id="random-anime" href="/random" class="main-menu" data-toggle="tooltip" title="Watch a random anime">
+                            <i class="fas fa-shuffle"></i>
+                            <span>Random</span>
+                        </a>
+                        <div id="lang">
+                            <div class="settings-options switch" data-switch="title_lang" data-persist="true">
+                                <span data-value="en" class="active">EN</span>
+                                <span data-value="jp">JP</span>
+                            </div>
+                        </div>
+                        <div id="socials"></div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-end">
+                        <div id="search-toggler">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div id="user">
+                            <div class="placeholder"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="search-page">
+        <div class="result-head">
+            <h1 id="searchTitle">Search</h1>
+            <span class="count" id="resultCount"></span>
+        </div>
+        <div id="resultsLoading" class="loading-msg">
+            <div class="spinner"></div>
+            Searching...
+        </div>
+        <div id="resultsEmpty" class="empty" style="display:none"></div>
+        <div class="ani items" id="resultsGrid" style="display:none"></div>
+        <div class="paging" id="resultsPaging" style="display:none">
+            <button type="button" class="pg-btn prev" id="pgPrev"><i class="fas fa-chevron-left"></i> Prev</button>
+            <span id="pgInfo"></span>
+            <button type="button" class="pg-btn next" id="pgNext">Next <i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <script>
+    // ============ SITE HEADER INTERACTIONS ============
+    (function () {
+        const menu = document.getElementById('menu-toggler');
+        const search = document.getElementById('search');
+        const searchToggler = document.getElementById('search-toggler');
+        let searchTimer = null;
+        let searchSeq = 0;
+        let searchItems = [];
+        let searchIdx = -1;
+
+        function renderSearch() {
+            const popup = search ? search.querySelector('.search-popup') : null;
+            if (!popup) return;
+            const body = popup.querySelector('.body');
+            const items = body.querySelector('.items');
+            if (!items) return;
+            if (searchItems.length === 0) {
+                items.innerHTML = '<div class="no-result">No results found</div>';
+                searchIdx = -1;
+                return;
+            }
+            items.innerHTML = searchItems.map((it, i) =>
+                '<a class="item' + (i === searchIdx ? ' active' : '') + '" href="/watch.html?anilistId=' + it.id + '">' +
+                    '<span class="poster">' + (it.image ? '<img loading="lazy" src="' + it.image + '" alt=""/>' : '') + '</span>' +
+                    '<span class="info">' +
+                        '<span class="name"></span>' +
+                        '<span class="meta"></span>' +
+                    '</span>' +
+                '</a>'
+            ).join('');
+            items.querySelectorAll('.item').forEach((el, i) => {
+                el.querySelector('.name').textContent = searchItems[i].title;
+                const meta = [];
+                if (searchItems[i].year) meta.push(searchItems[i].year);
+                if (searchItems[i].format) meta.push(searchItems[i].format);
+                meta.push(searchItems[i].subCount + ' sub' + (searchItems[i].dubCount ? ' · ' + searchItems[i].dubCount + ' dub' : ''));
+                el.querySelector('.meta').textContent = meta.join(' · ');
+            });
+            const more = popup.querySelector('.foot .more');
+            if (more) {
+                const inp = search ? search.querySelector('input') : null;
+                more.href = '/search?q=' + encodeURIComponent((inp ? inp.value : '').trim());
+                more.style.display = 'inline-flex';
+            }
+        }
+
+        function updateSearchBox() {
+            if (!search) return;
+            const form = search.querySelector('form');
+            if (form) form.classList.toggle('has-value', !!form.querySelector('input').value.trim());
+        }
+
+        if (search) {
+            const form = search.querySelector('form');
+            const inp = form.querySelector('input');
+            const clearBtn = form.querySelector('.s-clear');
+
+            inp.addEventListener('input', () => {
+                updateSearchBox();
+                const kw = inp.value.trim();
+                if (!kw) {
+                    searchItems = [];
+                    searchIdx = -1;
+                    const popup = search.querySelector('.search-popup');
+                    if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+                    search.classList.remove('search-open');
+                    return;
+                }
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    const my = ++searchSeq;
+                    fetch('/api/anime/search?q=' + encodeURIComponent(kw))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (my !== searchSeq) return;
+                            searchItems = data.results || [];
+                            searchIdx = searchItems.length ? 0 : -1;
+                            renderSearch();
+                            search.classList.add('search-open');
+                        })
+                        .catch(() => {
+                            if (my !== searchSeq) return;
+                            searchItems = [];
+                            renderSearch();
+                            search.classList.add('search-open');
+                        });
+                }, 250);
+            });
+
+            inp.addEventListener('keydown', (e) => {
+                if (!search.classList.contains('search-open')) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    searchIdx = searchItems.length ? (searchIdx + 1) % searchItems.length : -1;
+                    renderSearch();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    searchIdx = searchItems.length ? (searchIdx - 1 + searchItems.length) % searchItems.length : -1;
+                    renderSearch();
+                } else if (e.key === 'Enter' && searchIdx >= 0) {
+                    e.preventDefault();
+                    const link = search.querySelector('.item.active');
+                    if (link) window.location.href = link.href;
+                }
+            });
+
+            inp.addEventListener('focus', () => {
+                if (searchItems.length) search.classList.add('search-open');
+            });
+            inp.addEventListener('blur', () => {
+                setTimeout(() => search.classList.remove('search-open'), 150);
+            });
+
+            if (clearBtn) clearBtn.addEventListener('click', () => {
+                inp.value = '';
+                searchItems = [];
+                searchIdx = -1;
+                updateSearchBox();
+                const popup = search.querySelector('.search-popup');
+                if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+                inp.focus();
+            });
+
+            form.addEventListener('submit', (e) => {
+                const kw = inp.value.trim();
+                if (!kw) {
+                    e.preventDefault();
+                    inp.focus();
+                    return;
+                }
+                if (searchIdx >= 0 && search.querySelector('.item.active')) {
+                    e.preventDefault();
+                    window.location.href = search.querySelector('.item.active').href;
+                    return;
+                }
+                window.location.href = '/search?q=' + encodeURIComponent(kw);
+            });
+        }
+
+        if (searchToggler) {
+            searchToggler.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!search) return;
+                const show = search.classList.toggle('show');
+                if (show) {
+                    const inp = search.querySelector('input');
+                    if (inp) inp.focus();
+                }
+            });
+        }
+    })();
+
+    // ============ SEARCH RESULTS ============
+    (function () {
+        const q = new URLSearchParams(window.location.search).get('q') || '';
+        const grid = document.getElementById('resultsGrid');
+        const loading = document.getElementById('resultsLoading');
+        const empty = document.getElementById('resultsEmpty');
+        const title = document.getElementById('searchTitle');
+        const countEl = document.getElementById('resultCount');
+        const paging = document.getElementById('resultsPaging');
+        const pgPrev = document.getElementById('pgPrev');
+        const pgNext = document.getElementById('pgNext');
+        const pgInfo = document.getElementById('pgInfo');
+        const PER_PAGE = 24;
+
+        const searchBox = document.querySelector('#search input');
+        if (searchBox) searchBox.value = q;
+        if (typeof updateSearchBox === 'function') updateSearchBox();
+
+        if (!q) {
+            loading.style.display = 'none';
+            empty.style.display = 'block';
+            empty.innerHTML = '<p>Type a keyword in the search bar above to find anime.</p>';
+            title.textContent = 'Search';
+            return;
+        }
+
+        title.innerHTML = 'Results for <em>' + q.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) + '</em>';
+
+        let all = [];
+        let page = 0;
+
+        function card(item) {
+            const subLabel = item.subCount > 0 ? '<span class="ep-status sub"><span>' + item.subCount + '</span></span>' : '';
+            const dubLabel = item.dubCount > 0 ? '<span class="ep-status dub"><span>' + item.dubCount + '</span></span>' : '';
+            const totalLabel = item.totalEpisodes > 0 ? '<span class="ep-status total"><span>' + item.totalEpisodes + '</span></span>' : '';
+            return (
+                '<div class="item">' +
+                    '<div class="ani poster">' +
+                        '<a href="/watch.html?anilistId=' + item.id + '">' +
+                            '<img src="' + item.image + '" alt="' + item.title + '" loading="lazy" onerror="this.src=\'https://via.placeholder.com/200x280?text=No+Image\'"/>' +
+                            '<div class="meta"><div class="inner">' +
+                                '<div class="left">' + subLabel + dubLabel + totalLabel + '</div>' +
+                                '<div class="right">' + item.format + '</div>' +
+                            '</div></div>' +
+                        '</a>' +
+                    '</div>' +
+                    '<div class="info">' +
+                        '<a class="name d-title" href="/watch.html?anilistId=' + item.id + '">' + item.title + '</a>' +
+                    '</div>' +
+                '</div>'
+            );
+        }
+
+        function render() {
+            const pages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+            if (page >= pages) page = pages - 1;
+            if (page < 0) page = 0;
+            const slice = all.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+            grid.innerHTML = slice.map(card).join('');
+            pgInfo.textContent = 'Page ' + (page + 1) + ' of ' + pages + ' · ' + all.length + ' results';
+            pgPrev.classList.toggle('disabled', page <= 0);
+            pgNext.classList.toggle('disabled', page >= pages - 1);
+        }
+
+        pgPrev.addEventListener('click', () => { if (page > 0) { page--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+        pgNext.addEventListener('click', () => {
+            const pages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+            if (page < pages - 1) { page++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        });
+
+        fetch('/api/anime/search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => {
+                loading.style.display = 'none';
+                all = data.results || [];
+                if (!all.length) {
+                    empty.style.display = 'block';
+                    empty.innerHTML = '<p>No results found for &quot;' + q.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) + '&quot;. Try a different keyword.</p>';
+                    countEl.textContent = '0 results';
+                    return;
+                }
+                countEl.textContent = all.length + ' results';
+                grid.style.display = 'grid';
+                paging.style.display = 'flex';
+                render();
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                empty.innerHTML = '<p>Something went wrong while searching. Please try again.</p>';
+                console.warn('[Search] Error:', err);
+            });
+    })();
+    </script>
+</body>
+</html>
