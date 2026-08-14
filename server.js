@@ -1917,10 +1917,11 @@ const server = http.createServer(async (req, res) => {
             for (const ep of epList) {
               if (!ep || !ep.number) continue;
               const num = Number(ep.number);
-              const entry = byNumber.get(num) || { number: num, title: ep.title || '', duration: ep.duration || null, providers: {} };
+              const entry = byNumber.get(num) || { number: num, title: ep.title || '', duration: ep.duration || null, airDate: ep.airDate || null, providers: {} };
               entry.providers[`${provider}:${category}`] = { id: ep.id };
               if (!entry.title) entry.title = ep.title || '';
               if (!entry.duration) entry.duration = ep.duration || null;
+              if (!entry.airDate) entry.airDate = ep.airDate || null;
               byNumber.set(num, entry);
             }
           }
@@ -1930,7 +1931,9 @@ const server = http.createServer(async (req, res) => {
         // whole planned episode list for ongoing shows, which floods the grid
         // with future episodes nobody can watch. The aired count comes from
         // AniList: nextAiringEpisode.episode - 1 while airing, otherwise the
-        // episodes field (finished shows). Movies/specials keep everything.
+        // episodes field (finished shows). Note: for airing shows AniList's
+        // `episodes` field is the *planned total*, not the aired count, so it
+        // must NOT be used here — that was showing unreleased episodes.
         let info = null;
         try { info = await anilistMediaInfo(anilistId); } catch (_) {}
         let airedCount = null;
@@ -1940,13 +1943,25 @@ const server = http.createServer(async (req, res) => {
           airedCount = info.nextAiringEpisode.episode - 1;
         } else if (status === 'FINISHED' && infoEpisodes) {
           airedCount = infoEpisodes;
-        } else if ((status === 'RELEASING' || status === 'HIATUS') && infoEpisodes) {
-          airedCount = infoEpisodes;
         }
 
         let episodes = [...byNumber.values()].sort((a, b) => a.number - b.number);
         if (airedCount) {
           episodes = episodes.filter((ep) => Number(ep.number) <= airedCount);
+        }
+        // Secondary guard: when AniList can't give a reliable aired count (or
+        // the info call failed), drop episodes whose miruro airDate is clearly
+        // in the future — those are planned/unreleased placeholders. Episodes
+        // without an airDate (older data) are kept so nothing is lost.
+        const hasAirDates = episodes.some((ep) => ep.airDate);
+        if (!airedCount && hasAirDates) {
+          const now = Date.now();
+          const grace = 24 * 60 * 60 * 1000;
+          episodes = episodes.filter((ep) => {
+            if (!ep.airDate) return true;
+            const t = Date.parse(ep.airDate);
+            return !isNaN(t) && t <= now + grace;
+          });
         }
         log(req.method, reqUrl.pathname + reqUrl.search, 200, '[MIRURO]');
         res.writeHead(200, { 'Content-Type': 'application/json' });

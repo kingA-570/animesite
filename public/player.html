@@ -736,6 +736,9 @@
             seekIndicator.classList.remove('show');
         }
 
+        // Miruro-style gesture step: double-tap left/right seeks ±10s.
+        const SEEK_STEP = 10;
+
         let gesture = null;
         let gestureHoldTimer = null;
         let lastTapTime = 0;
@@ -818,16 +821,16 @@
                 const y = e.clientY - rect.top;
                 const now = performance.now();
 
-                // Double-tap / double-click detection: two quick taps within
-                // 320ms and 40px of each other trigger a forward/backward seek
-                // (right half = forward, left half = backward). The pending
-                // single-tap action is cancelled so only one seek happens.
+                // Double-tap (miruro-style): two quick taps within 320ms and
+                // 40px of each other seek forward/backward 10s by side (right
+                // half = forward, left half = backward). The pending
+                // single-tap action is cancelled so only the seek happens.
                 if (lastTapTime && now - lastTapTime < 320 && Math.hypot(x - lastTapX, y - lastTapY) < 40) {
                     clearTimeout(pendingTapTimer);
                     pendingTapTimer = null;
                     lastTapTime = 0;
                     const dir = x < rect.width / 2 ? -1 : 1;
-                    const t = Math.min(Math.max(0, video.currentTime + dir * step), video.duration || 0);
+                    const t = Math.min(Math.max(0, video.currentTime + dir * SEEK_STEP), video.duration || 0);
                     video.currentTime = t;
                     showSeekIndicator(x, y, dir, t);
                     setTimeout(hideSeekIndicator, 700);
@@ -838,8 +841,8 @@
                     return;
                 }
 
-                // First tap: remember it and defer the single-tap action briefly
-                // so a second quick tap can become a double-tap instead.
+                // First tap: remember it and defer play/pause briefly so a
+                // quick second tap can become a double-tap seek instead.
                 lastTapTime = now;
                 lastTapX = x;
                 lastTapY = y;
@@ -847,22 +850,10 @@
                 pendingTapTimer = setTimeout(() => {
                     pendingTapTimer = null;
                     lastTapTime = 0;
-                    if (x < rect.width / 3) {
-                        const t = Math.max(0, video.currentTime - step);
-                        video.currentTime = t;
-                        showSeekIndicator(x, y, -1, t);
-                        setTimeout(hideSeekIndicator, 700);
-                    } else if (x > (rect.width * 2) / 3) {
-                        const t = Math.min(video.duration || 0, video.currentTime + step);
-                        video.currentTime = t;
-                        showSeekIndicator(x, y, 1, t);
-                        setTimeout(hideSeekIndicator, 700);
-                    } else {
-                        if (video.paused) video.play(); else video.pause();
-                        flashCenter(video.paused
-                            ? '<polygon points="5,3 19,12 5,21"/>'
-                            : '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>');
-                    }
+                    if (video.paused) video.play(); else video.pause();
+                    flashCenter(video.paused
+                        ? '<polygon points="5,3 19,12 5,21"/>'
+                        : '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>');
                     showControls(false);
                 }, 280);
             }
@@ -927,6 +918,7 @@
                         hls.on(Hls.Events.MANIFEST_PARSED, () => {
                             loadingOverlay.classList.remove('show');
                             buildQualityList();
+                            applyDefaultQuality();
                             tryPlay();
                         });
                         hls.on(Hls.Events.LEVEL_SWITCHED, () => {
@@ -992,6 +984,24 @@
             return 'Auto';
         }
 
+        // Remember the user's preferred quality (as a height) so it carries
+        // over to the next episode / visit, miruro-style.
+        function rememberQuality() {
+            const idx = hlsInstance ? hlsInstance.currentLevel : -1;
+            let height = -1;
+            if (idx >= 0 && qualityLevels[idx]) height = qualityLevels[idx].height || -1;
+            try { localStorage.setItem('ak_defQuality', String(height)); } catch (e) {}
+        }
+        function applyDefaultQuality() {
+            if (!hlsInstance || !hlsInstance.levels || !hlsInstance.levels.length) return;
+            let savedHeight = -1;
+            try { savedHeight = parseInt(localStorage.getItem('ak_defQuality') || '-1', 10); } catch (e) {}
+            if (savedHeight > 0) {
+                const idx = hlsInstance.levels.findIndex(l => l.height === savedHeight);
+                if (idx >= 0) hlsInstance.currentLevel = idx;
+            }
+        }
+
         // --- Settings menu (speed + quality) ---
         const speedOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -1043,6 +1053,14 @@
                     <button class="menu-item" data-action="sub-bg">
                         <span>Background</span>
                         <span class="menu-value">${bgLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-opacity">
+                        <span>Text Opacity</span>
+                        <span class="menu-value">${opacityLabel()}</span>
+                    </button>
+                    <button class="menu-item" data-action="sub-font">
+                        <span>Font Family</span>
+                        <span class="menu-value">${fontLabel()}</span>
                     </button>
                     <button class="menu-item" data-action="sub-outline">
                         <span>Outline</span>
@@ -1103,7 +1121,7 @@
             else if (action === 'open-quality') renderMenu('quality');
             else if (action === 'open-subs') renderMenu('subs');
             else if (action === 'open-substyle') renderMenu('substyle');
-            else if (action === 'sub-size' || action === 'sub-color' || action === 'sub-bg' || action === 'sub-outline' || action === 'sub-pos') {
+            else if (action === 'sub-size' || action === 'sub-color' || action === 'sub-bg' || action === 'sub-opacity' || action === 'sub-font' || action === 'sub-outline' || action === 'sub-pos') {
                 cycleSub(action);
                 applySubStyle();
                 renderMenu('substyle');
@@ -1121,6 +1139,7 @@
             } else if (action === 'quality') {
                 const idx = parseInt(item.dataset.val, 10);
                 if (hlsInstance) hlsInstance.currentLevel = idx;
+                rememberQuality();
                 renderMenu('quality');
                 menuTimer = setTimeout(() => renderMenu('main'), 600);
             }
@@ -1134,7 +1153,6 @@
         const skipOutroBtn = document.getElementById('skip-outro-btn');
         const qp = new URLSearchParams(location.search);
         const autoPlay = qp.get('autoplay') !== '0';
-        let step = parseFloat(qp.get('step') || '10') || 10;
         const resumeTime = parseFloat(qp.get('t') || '0') || 0;
         let resumeDone = false;
         video.addEventListener('loadedmetadata', () => {
@@ -1201,7 +1219,6 @@
                 }
                 if (d.skipIntro) skipIntro = d.skipIntro;
                 if (d.skipOutro) skipOutro = d.skipOutro;
-                if (typeof d.step === 'number' && d.step > 0) step = d.step;
                 if (typeof d.autoplay === 'boolean') {
                     if (d.autoplay && video.paused) video.play().catch(() => {});
                 }
@@ -1213,12 +1230,12 @@
             if (window.parent !== window) window.parent.postMessage({ type: 'video-ended' }, '*');
         });
 
-        // Rewind / Forward
+        // Rewind / Forward (fixed 10s seek)
         rewindBtn.addEventListener('click', () => {
-            video.currentTime = Math.max(0, video.currentTime - step);
+            video.currentTime = Math.max(0, video.currentTime - SEEK_STEP);
         });
         forwardBtn.addEventListener('click', () => {
-            video.currentTime = Math.min(video.duration || 0, video.currentTime + step);
+            video.currentTime = Math.min(video.duration || 0, video.currentTime + SEEK_STEP);
         });
 
         // Previous / Next episode (asks the parent page to navigate)
@@ -1370,11 +1387,11 @@
                     break;
                 case 'ArrowLeft':
                 case 'j':
-                    video.currentTime = Math.max(0, video.currentTime - step);
+                    video.currentTime = Math.max(0, video.currentTime - SEEK_STEP);
                     break;
                 case 'ArrowRight':
                 case 'l':
-                    video.currentTime = Math.min(video.duration || 0, video.currentTime + step);
+                    video.currentTime = Math.min(video.duration || 0, video.currentTime + SEEK_STEP);
                     break;
                 case 'm':
                     video.muted = !video.muted;
@@ -1405,6 +1422,12 @@
             for (let n = 0; n < tracks.length; n++) tracks[n].mode = (n === i) ? 'showing' : 'hidden';
             ccBtn.classList.toggle('on', i >= 0);
             ccBtn.title = i >= 0 ? `Subtitles: ${currentSubtitleLabel()} (click to toggle)` : 'Subtitles (click to enable)';
+            // Remember the chosen subtitle language (or "off") so it persists
+            // across episodes, miruro-style.
+            try {
+                if (i >= 0 && subsMeta[i]) localStorage.setItem('ak_subLang', subsMeta[i].lang || subsMeta[i].label || '');
+                else if (i < 0) localStorage.setItem('ak_subLang', '__off__');
+            } catch (e) {}
         }
         function initSubtitles() {
             if (!subsMeta.length) {
@@ -1420,7 +1443,13 @@
                 video.appendChild(tr);
             });
             const def = subsMeta.findIndex(t => t.default);
-            setSubtitle(def >= 0 ? def : -1);
+            let savedIdx = -1;
+            try {
+                const saved = localStorage.getItem('ak_subLang');
+                if (saved === '__off__') { setSubtitle(-1); return; }
+                if (saved) savedIdx = subsMeta.findIndex(t => (t.lang || t.label || '') === saved);
+            } catch (e) {}
+            setSubtitle(savedIdx >= 0 ? savedIdx : (def >= 0 ? def : -1));
         }
         ccBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1437,7 +1466,16 @@
         const SUB_SIZE_OPTS = [['80%', 'Small'], ['100%', 'Medium'], ['130%', 'Large']];
         const SUB_COLOR_OPTS = [['#ffffff', 'White'], ['#ffe066', 'Yellow'], ['#7ff3ff', 'Cyan'], ['#ff9ecf', 'Pink'], ['#b7ffb0', 'Green']];
         const SUB_BG_OPTS = [['rgba(0,0,0,0)', 'None'], ['rgba(0,0,0,0.7)', 'Dark'], ['rgba(0,0,0,1)', 'Black'], ['rgba(255,255,255,0.85)', 'White']];
-        const SUB_STYLE_DEFAULTS = { size: '100%', color: '#ffffff', bg: 'rgba(0,0,0,0.7)', outline: true, pos: 'bottom' };
+        const SUB_OPACITY_OPTS = [[1, '100%'], [0.75, '75%'], [0.5, '50%'], [0.25, '25%']];
+        const SUB_FONT_OPTS = [
+            ['inherit', 'Default'],
+            ['Arial, sans-serif', 'Arial'],
+            ['Georgia, serif', 'Georgia'],
+            ['"Courier New", monospace', 'Courier'],
+            ['"Comic Sans MS", cursive', 'Comic'],
+            ['"Trebuchet MS", sans-serif', 'Trebuchet'],
+        ];
+        const SUB_STYLE_DEFAULTS = { size: '100%', color: '#ffffff', bg: 'rgba(0,0,0,0.7)', outline: true, pos: 'bottom', opacity: 1, font: 'inherit' };
         let subStyle = { ...SUB_STYLE_DEFAULTS };
         try { Object.assign(subStyle, JSON.parse(localStorage.getItem('ak_subStyle') || '{}')); } catch (e) {}
 
@@ -1447,6 +1485,8 @@
         function sizeLabel() { return (SUB_SIZE_OPTS.find(o => o[0] === subStyle.size) || SUB_SIZE_OPTS[1])[1]; }
         function colorLabel() { return (SUB_COLOR_OPTS.find(o => o[0] === subStyle.color) || SUB_COLOR_OPTS[0])[1]; }
         function bgLabel() { return (SUB_BG_OPTS.find(o => o[0] === subStyle.bg) || SUB_BG_OPTS[1])[1]; }
+        function opacityLabel() { return (SUB_OPACITY_OPTS.find(o => o[0] === subStyle.opacity) || SUB_OPACITY_OPTS[0])[1]; }
+        function fontLabel() { return (SUB_FONT_OPTS.find(o => o[0] === subStyle.font) || SUB_FONT_OPTS[0])[1]; }
         function cycleSub(action) {
             if (action === 'sub-size') {
                 const i = SUB_SIZE_OPTS.findIndex(o => o[0] === subStyle.size);
@@ -1457,6 +1497,12 @@
             } else if (action === 'sub-bg') {
                 const i = SUB_BG_OPTS.findIndex(o => o[0] === subStyle.bg);
                 subStyle.bg = SUB_BG_OPTS[(i + 1) % SUB_BG_OPTS.length][0];
+            } else if (action === 'sub-opacity') {
+                const i = SUB_OPACITY_OPTS.findIndex(o => o[0] === subStyle.opacity);
+                subStyle.opacity = SUB_OPACITY_OPTS[(i + 1) % SUB_OPACITY_OPTS.length][0];
+            } else if (action === 'sub-font') {
+                const i = SUB_FONT_OPTS.findIndex(o => o[0] === subStyle.font);
+                subStyle.font = SUB_FONT_OPTS[(i + 1) % SUB_FONT_OPTS.length][0];
             } else if (action === 'sub-outline') {
                 subStyle.outline = !subStyle.outline;
             } else if (action === 'sub-pos') {
@@ -1485,8 +1531,10 @@
             cueStyleEl.textContent = `
                 #hls-video::cue {
                     font-size: ${subCuePx()}px !important;
+                    font-family: ${subStyle.font} !important;
                     color: ${subStyle.color} !important;
                     background-color: ${subStyle.bg} !important;
+                    opacity: ${subStyle.opacity} !important;
                     text-shadow: ${shadow} !important;
                     ${pos}
                 }`;

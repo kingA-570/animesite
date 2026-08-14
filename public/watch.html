@@ -93,7 +93,6 @@
         .ctrl.light.on { color: #f0a500; }
         .ctrl.expand.on { color: #e45f3a; }
         .ctrl.layout.on { color: #b5a8ff; }
-        .ctrl.skiptime { border: none; background: transparent; padding: 0; }
 
         .controls-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
@@ -102,20 +101,6 @@
         .current-episode-info { display: flex; flex-direction: column; margin: 0 10px; min-width: 0; }
         .current-episode-name { font-size: 0.85rem; font-weight: 700; color: #e8ecf4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
         .current-episode-type { font-size: 0.68rem; font-weight: 700; color: #e45f3a; letter-spacing: 1px; }
-
-        /* Skip-time dropdown */
-        .ctrl.skiptime { position: relative; }
-        .skiptime .dropdown-menu {
-            position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 50;
-            background: #1a1f35; border: 1px solid #2a2f45; border-radius: 8px;
-            min-width: 90px; padding: 4px; display: none; flex-direction: column;
-        }
-        .skiptime .dropdown-menu.open { display: flex; }
-        .skiptime .dropdown-item {
-            padding: 7px 12px; border-radius: 6px; color: #b0b8d1;
-            font-size: 0.82rem; font-weight: 600; cursor: pointer;
-        }
-        .skiptime .dropdown-item:hover, .skiptime .dropdown-item.active { background: #e51e3a; color: #fff; }
 
         /* ============ Info card (miruro-style poster card) ============ */
         .info-sidebar {
@@ -550,7 +535,7 @@
             .current-episode-info { display: none; }
             /* Miruro hides the non-essential buttons on mobile; the player.html
                iframe provides its own fullscreen + skip controls. */
-            .ctrl.light, .ctrl.layout, .ctrl.expand, .ctrl.skiptime { display: none; }
+            .ctrl.light, .ctrl.layout, .ctrl.expand { display: none; }
             .ctrl { padding: 6px 7px; font-size: 0.7rem; }
             .ctrl.forward { padding: 6px 9px; }
             .ctrl.check { padding: 4px 6px 4px 8px; }
@@ -1033,11 +1018,6 @@
                         <label for="autoNextChk">Auto Next</label>
                     </div>
 
-                    <div class="ctrl skiptime" id="skipTimeCtrl">
-                        <button class="ctrl" id="skipTimeBtn"><i class="fas fa-forward"></i> Skip</button>
-                        <div class="dropdown-menu" id="skipTimeMenu"></div>
-                    </div>
-
                     <div class="ctrl light" id="ctrlLight" title="Toggle Light Mode" onclick="toggleLight()"><i class="fas fa-sun"></i></div>
                 </div>
 
@@ -1181,18 +1161,16 @@ const settings = {
     autoPlay: localStorage.getItem('ak_autoPlay') !== '0',
     autoNext: localStorage.getItem('ak_autoNext') !== '0',
     autoSkip: localStorage.getItem('ak_autoSkip') === '1',
-    skipTime: parseInt(localStorage.getItem('ak_skipTime') || '60', 10) || 60,
 };
 function saveSettings() {
     localStorage.setItem('ak_autoPlay', settings.autoPlay ? '1' : '0');
     localStorage.setItem('ak_autoNext', settings.autoNext ? '1' : '0');
     localStorage.setItem('ak_autoSkip', settings.autoSkip ? '1' : '0');
-    localStorage.setItem('ak_skipTime', String(settings.skipTime));
 }
 function pushPlayerSettings() {
     const win = playerFrame.contentWindow;
     if (!win) return;
-    win.postMessage({ type: 'player-settings', autoSkip: settings.autoSkip, step: settings.skipTime, autoplay: settings.autoPlay }, '*');
+    win.postMessage({ type: 'player-settings', autoSkip: settings.autoSkip, autoplay: settings.autoPlay }, '*');
 }
 
 // ============ CONTINUE WATCHING (localStorage) ============
@@ -1369,28 +1347,6 @@ autoPlayChk.addEventListener('change', () => { settings.autoPlay = autoPlayChk.c
 autoNextChk.addEventListener('change', () => { settings.autoNext = autoNextChk.checked; saveSettings(); });
 autoSkipChk.addEventListener('change', () => { settings.autoSkip = autoSkipChk.checked; saveSettings(); pushPlayerSettings(); });
 
-// Skip-time dropdown
-const skipTimeBtn = document.getElementById('skipTimeBtn');
-const skipTimeMenu = document.getElementById('skipTimeMenu');
-skipTimeMenu.innerHTML = [60, 90, 120, 150].map(s =>
-    `<div class="dropdown-item ${settings.skipTime === s ? 'active' : ''}" data-sec="${s}">${s}s</div>`
-).join('');
-skipTimeMenu.addEventListener('click', (e) => {
-    const item = e.target.closest('.dropdown-item');
-    if (!item) return;
-    settings.skipTime = parseInt(item.dataset.sec, 10);
-    saveSettings();
-    skipTimeMenu.querySelectorAll('.dropdown-item').forEach(i => i.classList.toggle('active', i === item));
-    skipTimeMenu.classList.remove('open');
-    skipTimeBtn.innerHTML = `<i class="fas fa-forward"></i> Skip ${settings.skipTime}s`;
-    pushPlayerSettings();
-});
-skipTimeBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    skipTimeMenu.classList.toggle('open');
-});
-document.addEventListener('click', () => skipTimeMenu.classList.remove('open'));
-
 if (anilistIdParam) {
     state.anilistId = anilistIdParam;
     state.slug = '';
@@ -1464,7 +1420,13 @@ async function loadEpisodes() {
         // the next airing episode number (aired count = next - 1).
         const info = state.info || {};
         const nextEp = (info.nextAiringEpisode && info.nextAiringEpisode.episode) || 0;
-        let total = info.episodes || (nextEp ? nextEp - 1 : 0);
+        // For airing shows AniList's `episodes` field is the *planned total*,
+        // not the aired count — using it would flood the list with unreleased
+        // episodes. Only trust it for finished shows; otherwise use the next
+        // airing episode minus one (aired count).
+        let total = (String(info.status || '').toUpperCase() === 'FINISHED' && info.episodes)
+            ? info.episodes
+            : (nextEp ? nextEp - 1 : 0);
         if (total < 1) total = nextEp;
         if (state.anilistId && total) {
             const list = Array.from({ length: total }, (_, i) => ({ num: String(i + 1), title: 'Episode ' + (i + 1), miruro: true }));
@@ -1816,7 +1778,6 @@ function buildPlayerUrl(mediaUrl, opts = {}) {
     if (opts.title) q.set('title', opts.title);
     if (state.poster) q.set('poster', state.poster);
     q.set('autoplay', settings.autoPlay ? '1' : '0');
-    q.set('step', String(settings.skipTime));
     q.set('autoSkip', settings.autoSkip ? '1' : '0');
     const epIdx = state.episodes.findIndex(ep => ep.num === state.currentEp);
     q.set('hasPrev', epIdx > 0 ? '1' : '0');
