@@ -1480,7 +1480,7 @@ async function loadEpisodes() {
         // Don't let a dead miruro pipe stall the page — fall back to AniList
         // episodes after a short timeout so MEGA PLAY still renders.
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 12000);
+        const timer = setTimeout(() => ctrl.abort(), 25000);
         let epResp;
         try {
             epResp = await fetch(`/api/miruro/episodes?anilistId=${state.anilistId}`, { signal: ctrl.signal });
@@ -1509,6 +1509,19 @@ async function loadEpisodes() {
         // numeric episode list so MEGA PLAY (independent of miruro) works.
         // AniList leaves `episodes` null for ongoing shows, so fall back to
         // the next airing episode number (aired count = next - 1).
+        // If state.info is missing (e.g. /api/anilist/info also failed on
+        // Render), fetch it directly from the server before building the list.
+        if (!state.info && state.anilistId) {
+            try {
+                const infoResp = await fetch(`/api/anilist/info?anilistId=${state.anilistId}`);
+                const infoData = await infoResp.json();
+                if (infoData.resolved && infoData.resolved.info) {
+                    state.info = infoData.resolved.info;
+                    state.tmdbId = infoData.resolved.tmdbId || state.tmdbId;
+                    applyInfo(infoData.resolved);
+                }
+            } catch (_) { /* non-fatal */ }
+        }
         const info = state.info || {};
         const nextEp = (info.nextAiringEpisode && info.nextAiringEpisode.episode) || 0;
         // For airing shows AniList's `episodes` field is the *planned total*,

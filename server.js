@@ -570,7 +570,7 @@ async function anilistMediaInfo(id) {
       nextAiringEpisode { episode airingAt timeUntilAiring }
       externalLinks { site url type }
       characters(sort: ROLE, perPage: 12) {
-        edges { role node { id name image { large } } }
+        edges { role node { id name { full } image { large } } }
       }
       relations {
         edges {
@@ -2080,9 +2080,49 @@ const server = http.createServer(async (req, res) => {
           nextAiringEpisode: info?.nextAiringEpisode || null,
         }));
       } catch (err) {
-        log('MIRURO_EPISODES_ERR', reqUrl.search, 502, err.message);
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: err.message, episodes: [] }));
+        // Miruro pipe failed (e.g. Cloudflare blocks datacenter IPs).
+        // Fall back to a numeric episode list from AniList so MEGA PLAY
+        // and other independent sources still work.
+        log('MIRURO_EPISODES_ERR', reqUrl.search, 200, err.message + ' [fallback to AniList]');
+        try {
+          const info = await anilistMediaInfo(anilistId);
+          let total = 0;
+          let airedCount = null;
+          let status = '';
+          let nextAiring = null;
+          if (info) {
+            status = info.status || '';
+            nextAiring = info.nextAiringEpisode || null;
+            if (info.nextAiringEpisode?.episode) {
+              airedCount = info.nextAiringEpisode.episode - 1;
+              total = airedCount;
+            } else if (status === 'FINISHED' && info.episodes) {
+              airedCount = info.episodes;
+              total = info.episodes;
+            }
+          }
+          if (total < 1) total = airedCount || 0;
+          const episodes = total > 0
+            ? Array.from({ length: total }, (_, i) => ({
+                number: i + 1,
+                title: 'Episode ' + (i + 1),
+              }))
+            : [];
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({
+            mappings: {},
+            anilistId,
+            episodes,
+            airedCount,
+            totalEpisodes: info?.episodes || null,
+            status,
+            nextAiringEpisode: nextAiring,
+          }));
+        } catch (fallbackErr) {
+          log('MIRURO_EPISODES_FALLBACK_ERR', reqUrl.search, 502, fallbackErr.message);
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: err.message, episodes: [] }));
+        }
       }
     }
 
