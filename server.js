@@ -1733,22 +1733,6 @@ function formatAnilistForHome(media) {
 // ========================
 // REQUEST ROUTER
 // ========================
-// Watch-together room state (lightweight, in-memory room store).
-// Hosts call POST /api/watch-together?room=.. to publish {time, playing, episode,
-// anilistId, chat[]} and viewers poll GET to stay in sync.
-const watchTogetherStore = {};
-const watchTogetherRooms = new Set();
-setInterval(() => {
-  const now = Date.now();
-  for (const room of watchTogetherRooms) {
-    const s = watchTogetherStore[room];
-    if (s && now - (s.updatedAt || 0) > 15 * 60 * 1000) {
-      delete watchTogetherStore[room];
-      watchTogetherRooms.delete(room);
-    }
-  }
-}, 5 * 60 * 1000);
-
 // Airing schedule grouped by weekday. AnimeX exposes this; fall back to a
 // rolling AniList "currently airing" fetch when the remote is unreachable.
 async function animeSchedule() {
@@ -2519,31 +2503,6 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
-    }
-
-    // ========== ROUTE: /api/watch-together (room state store) ==========
-    if (reqUrl.pathname === '/api/watch-together') {
-      const room = reqUrl.searchParams.get('room') || '';
-      if (!room) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Missing room parameter' }));
-      }
-      if (req.method === 'POST') {
-        const body = await jsonBody();
-        const cur = watchTogetherStore[room] || {};
-        // A chat message is appended to the room history; otherwise merge.
-        if (body.msg) {
-          const chat = Array.isArray(cur.chat) ? [...cur.chat, body.msg].slice(-120) : [body.msg];
-          watchTogetherStore[room] = { ...cur, chat, updatedAt: Date.now() };
-        } else {
-          watchTogetherStore[room] = { ...cur, ...body, chat: cur.chat || [], updatedAt: Date.now() };
-        }
-        watchTogetherRooms.add(room);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ ok: true }));
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ room, state: watchTogetherStore[room] || null }));
     }
 
     // ========== ROUTE: browse redirects (/status/, /genre/, /type/, /az-list/) ==========

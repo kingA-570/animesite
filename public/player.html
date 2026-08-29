@@ -429,22 +429,28 @@
 
         @media (max-width: 768px) {
             #time-display { font-size: 10px; min-width: 0; flex-shrink: 1; text-align: right; }
-            .ctrl-btn { width: 34px; height: 34px; }
-            .ctrl-btn svg { width: 17px; height: 17px; }
+            .ctrl-btn,
+            .ctrl-btn svg { touch-action: manipulation; }
+            .ctrl-btn { width: 38px; height: 38px; }
+            .ctrl-btn svg { width: 19px; height: 19px; }
             #volume-container { display: none; }
             #big-play { width: 72px; height: 72px; }
             #big-play svg { width: 28px; height: 28px; }
             #settings-menu { width: 200px; right: 8px; bottom: 64px; max-height: calc(100dvh - 96px); overflow-y: auto; }
             #controls { padding: 14px 10px 10px; }
             .controls-row { gap: 2px; }
-            #seek-bar { margin-bottom: 10px; }
+            /* Bigger seek target on touch screens */
+            #seek-bar { height: 8px; margin-bottom: 14px; border-radius: 5px; touch-action: none; }
+            .seek-fill { border-radius: 5px; }
+            .seek-thumb { width: 18px; height: 18px; }
             #controls-top { padding: 10px 12px; }
             #episode-title { font-size: 13px; }
-            #skip-controls { right: 10px; bottom: 88px; }
+            #skip-controls { right: 10px; bottom: 92px; }
         }
         @media (max-width: 400px) {
-            .ctrl-btn { width: 30px; height: 30px; }
-            .ctrl-btn svg { width: 15px; height: 15px; }
+            #rewind-btn, #forward-btn { display: none; }
+            .ctrl-btn { width: 36px; height: 36px; }
+            .ctrl-btn svg { width: 18px; height: 18px; }
             #settings-menu { width: calc(100vw - 16px); }
         }
     </style>
