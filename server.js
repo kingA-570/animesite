@@ -546,6 +546,7 @@ function normalizeTitle(str) {
 const anilistInfoCache = new Map();
 const ANILIST_INFO_TTL = 24 * 60 * 60 * 1000;
 
+// Light query: fast, used for watch page info + episode count
 async function anilistMediaInfo(id) {
   const key = Number(id);
   if (anilistInfoCache.has(key)) return anilistInfoCache.get(key);
@@ -569,22 +570,6 @@ async function anilistMediaInfo(id) {
       studios { nodes { name isAnimationStudio } }
       nextAiringEpisode { episode airingAt timeUntilAiring }
       externalLinks { site url type }
-      characters(sort: ROLE, perPage: 12) {
-        edges { role node { id name { full } image { large } } }
-      }
-      relations {
-        edges {
-          relationType
-          node { id title { romaji english native } coverImage { large medium } format status seasonYear averageScore }
-        }
-      }
-      recommendations(sort: RATING_DESC, perPage: 12) {
-        nodes {
-          mediaRecommendation {
-            id title { romaji english native } coverImage { large medium } format status seasonYear averageScore
-          }
-        }
-      }
     }
   }`;
   const response = await fetch(ANILIST_GRAPHQL, {
@@ -2260,6 +2245,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ========== ROUTE: /api/anime/extras (relations + recommendations for an anime) ==========
+    // Uses its own heavy GraphQL query (characters, relations, recommendations)
+    // so it doesn't slow down the watch page info load.
     if (reqUrl.pathname === '/api/anime/extras') {
       const anilistId = reqUrl.searchParams.get('anilistId');
       if (!anilistId) {
@@ -2267,8 +2254,36 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ error: 'Missing anilistId parameter' }));
       }
       try {
-        const info = await anilistMediaInfo(anilistId);
-        if (!info) throw new Error('AniList info unavailable');
+        const gql = `query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            characters(sort: ROLE, perPage: 12) {
+              edges { role node { id name { full } image { large } } }
+            }
+            relations {
+              edges {
+                relationType
+                node { id title { romaji english native } coverImage { large medium } format status seasonYear averageScore }
+              }
+            }
+            recommendations(sort: RATING_DESC, perPage: 12) {
+              nodes {
+                mediaRecommendation {
+                  id title { romaji english native } coverImage { large medium } format status seasonYear averageScore
+                }
+              }
+            }
+          }
+        }`;
+        const response = await fetch(ANILIST_GRAPHQL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ query: gql, variables: { id: Number(anilistId) } }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.status !== 200) throw new Error('AniList extras query failed');
+        const json = await response.json();
+        const media = json?.data?.Media;
+        if (!media) throw new Error('AniList media not found');
         const toCard = (m) => (m ? {
           anilistId: m.id,
           title: m.title?.english || m.title?.romaji || m.title?.native || '',
@@ -2279,14 +2294,14 @@ const server = http.createServer(async (req, res) => {
           year: m.seasonYear || null,
           score: m.averageScore || null,
         } : null);
-        const relations = (info.relations?.edges || [])
+        const relations = (media.relations?.edges || [])
           .filter((e) => e && e.node)
           .map((e) => ({ relationType: e.relationType || 'RELATED', ...toCard(e.node) }))
           .filter((r) => r.anilistId);
-        const recommendations = (info.recommendations?.nodes || [])
+        const recommendations = (media.recommendations?.nodes || [])
           .map((n) => toCard(n && n.mediaRecommendation))
           .filter((r) => r && r.anilistId);
-        const characters = (info.characters?.edges || [])
+        const characters = (media.characters?.edges || [])
           .filter((e) => e && e.node && e.node.image && e.node.image.large)
           .map((e) => ({
             id: e.node.id,
