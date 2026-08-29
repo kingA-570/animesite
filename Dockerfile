@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # Python + curl_cffi for the miruro sidecar (browser TLS fingerprint)
 # --only-binary prevents curl_cffi from trying to compile from source
