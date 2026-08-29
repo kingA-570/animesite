@@ -29,7 +29,7 @@ RUN (python3 -m playwright install-deps chromium \
 WORKDIR /app
 
 # No npm dependencies needed - server.js uses only Node built-ins
-COPY package.json server.js miruro_sidecar.py ./
+COPY package.json server.js db.js animex.js miruro_sidecar.py ./
 COPY public/ ./public/
 
 ENV PORT=3000 \
