@@ -70,6 +70,7 @@ body {
   color: var(--c-text);
   text-align: left;
   background-color: var(--c-bg);
+  overflow-x: hidden;
 }
 
 .continue-watching-home-section {
