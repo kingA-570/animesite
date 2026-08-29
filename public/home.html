@@ -251,14 +251,42 @@
                 #search .search-popup .s-close { display: block; }
             }
 
-            /* Keep the live dropdown visible & tidy on narrow screens too */
+            /* ============ Mobile search overrides ============ */
             @media (max-width: 1199.98px) {
-                #search .search-popup {
-                    padding-top: 0 !important;
-                    top: calc(100% + 8px) !important;
-                    border-radius: 12px !important;
+                #search-toggler { display: block; }
+                #search {
+                    display: none !important;
+                    position: absolute;
+                    top: 100%; left: 0; right: 0;
+                    z-index: 80;
+                    padding: 10px;
+                    background: var(--c-surface);
+                    border-bottom: 1px solid var(--c-border);
                 }
+                #search.show { display: block !important; }
+                #search form {
+                    border-radius: 12px;
+                    height: 48px;
+                    max-width: 100%;
+                    border: 1px solid var(--c-border);
+                }
+                #search form input { font-size: 1rem; }
+                #search .search-popup {
+                    border-radius: 12px;
+                    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+                    margin-top: 8px;
+                    max-height: 50vh;
+                    overflow-y: auto;
+                }
+                #search .search-popup .s-close { display: none; }
+                #search .search-popup .body { padding: 4px; }
+                #search .search-popup .foot { padding: 8px 12px; }
                 #search .search-popup .foot .hint { display: none; }
+            }
+            @media (max-width: 575.98px) {
+                #search form { height: 44px; border-radius: 10px; }
+                #search form input { font-size: 0.95rem; }
+                #search .search-popup { border-radius: 10px; }
             }
 
             /* ============ Footer (centered, miruro-style) ============ */
@@ -1193,6 +1221,12 @@
                             <section id="continue-watching-home-section" class="continue-watching-home-section">
                                 <div class="head with-more">
                                     <div class="title mr-3">Continue Watching</div>
+                                    <div class="end">
+                                        <span class="t-nav">
+                                            <span class="cw-prev disabled" title="Scroll left"><i class="fa-solid fa-angle-left"></i></span>
+                                            <span class="cw-next" title="Scroll right"><i class="fa-solid fa-angle-right"></i></span>
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="body">
                                     <div id="continue-watching-home-list" class="continue-watching-home-list"></div>
@@ -2996,29 +3030,27 @@
                             if (r.slug) q.set('slug', r.slug);
                             if (r.anilistId) q.set('anilistId', r.anilistId);
                             q.set('ep', r.ep);
-                            const posterHtml = r.poster
-                                ? `<img class="continue-watching-thumb" src="${r.poster.replace(/"/g, '&quot;')}" alt="" loading="lazy">`
-                                : '';
+                            const posterSrc = r.poster ? r.poster.replace(/"/g, '&quot;') : '';
                             return `
-                                <a class="continue-watching-item" href="watch.html?${q.toString()}">
-                                    ${posterHtml}
-                                    <div class="continue-watching-mid">
-                                        <strong>${r.title}</strong>
-                                        <span>Episode ${r.ep}${r.percent ? ' &middot; ' + r.percent + '%' : ''}</span>
+                                <a class="continue-watching-card" href="watch.html?${q.toString()}">
+                                    <div class="cw-poster">
+                                        ${posterSrc ? `<img src="${posterSrc}" alt="" loading="lazy">` : ''}
+                                        <span class="cw-ep-badge">EP ${r.ep}</span>
+                                        <button class="cw-remove" type="button"
+                                                data-key="${r.key.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
+                                                title="Remove" aria-label="Remove ${r.title}">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                        <div class="cw-progress"><div class="cw-progress-bar" style="width:${r.percent}%"></div></div>
                                     </div>
-                                    <div class="continue-watching-pill">${r.percent}%</div>
-                                    <button class="continue-watching-remove" type="button"
-                                            style="opacity:1;visibility:visible"
-                                            data-key="${r.key.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
-                                            title="Remove from continue watching" aria-label="Remove ${r.title}">
-                                        <svg viewBox="0 0 512 512" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M256 48C141.1 48 48 141.1 48 256s93.1 208 208 208 208-93.1 208-208S370.9 48 256 48zm0 397.7c-104.7 0-189.7-85-189.7-189.7S151.3 66.3 256 66.3s189.7 85 189.7 189.7-85 189.7-189.7 189.7z"/><path d="M320.7 303.3c3.1 3.1 3.1 8.2 0 11.3l-6.1 6.1c-3.1 3.1-8.2 3.1-11.3 0L256 273l-47.3 47.7c-3.1 3.1-8.2 3.1-11.3 0l-6.1-6.1c-3.1-3.1-3.1-8.2 0-11.3L238.7 256l-47.4-47.3c-3.1-3.1-3.1-8.2 0-11.3l6.1-6.1c3.1-3.1 8.2-3.1 11.3 0L256 238.7l47.3-47.4c3.1-3.1 8.2-3.1 11.3 0l6.1 6.1c3.1 3.1 3.1 8.2 0 11.3L273.3 256l47.4 47.3z"/></svg>
-                                    </button>
+                                    <div class="cw-title">${r.title}</div>
+                                    <div class="cw-meta">Ep ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
                                 </a>`;
                         }).join('');
                     };
 
                     list.addEventListener('click', (e) => {
-                        const btn = e.target.closest('.continue-watching-remove');
+                        const btn = e.target.closest('.cw-remove');
                         if (!btn) return;
                         e.preventDefault();
                         e.stopPropagation();
@@ -3031,6 +3063,23 @@
                         if (e.key === 'animekai:continue' || e.key === 'user.playing') render();
                     });
                     const _wi = setInterval(render, 4000);
+
+                    // Scroll arrows for continue watching
+                    const section = document.getElementById('continue-watching-home-section');
+                    const prevBtn = section ? section.querySelector('.cw-prev') : null;
+                    const nextBtn = section ? section.querySelector('.cw-next') : null;
+                    if (prevBtn && nextBtn && list) {
+                        const scrollAmount = 160;
+                        const updateArrows = () => {
+                            prevBtn.classList.toggle('disabled', list.scrollLeft <= 0);
+                            nextBtn.classList.toggle('disabled', list.scrollLeft + list.clientWidth >= list.scrollWidth - 2);
+                        };
+                        prevBtn.addEventListener('click', () => list.scrollBy({ left: -scrollAmount, behavior: 'smooth' }));
+                        nextBtn.addEventListener('click', () => list.scrollBy({ left: scrollAmount, behavior: 'smooth' }));
+                        list.addEventListener('scroll', updateArrows);
+                        new MutationObserver(updateArrows).observe(list, { childList: true });
+                        updateArrows();
+                    }
                 })();
 
                 // My List (miruro-style watchlist) section

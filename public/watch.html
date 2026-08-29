@@ -477,6 +477,44 @@
             #search .search-popup .foot .hint { display: none; }
         }
 
+        /* ============ Mobile search overrides ============ */
+        @media (max-width: 1199.98px) {
+            #search-toggler { display: block; }
+            #search {
+                display: none !important;
+                position: absolute;
+                top: 100%; left: 0; right: 0;
+                z-index: 80;
+                padding: 10px;
+                background: var(--c-surface);
+                border-bottom: 1px solid var(--c-border);
+            }
+            #search.show { display: block !important; }
+            #search form {
+                border-radius: 12px;
+                height: 48px;
+                max-width: 100%;
+                border: 1px solid var(--c-border);
+            }
+            #search form input { font-size: 1rem; }
+            #search .search-popup {
+                border-radius: 12px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+                margin-top: 8px;
+                max-height: 50vh;
+                overflow-y: auto;
+            }
+            #search .search-popup .s-close { display: none; }
+            #search .search-popup .body { padding: 4px; }
+            #search .search-popup .foot { padding: 8px 12px; }
+            #search .search-popup .foot .hint { display: none; }
+        }
+        @media (max-width: 575.98px) {
+            #search form { height: 44px; border-radius: 10px; }
+            #search form input { font-size: 0.95rem; }
+            #search .search-popup { border-radius: 10px; }
+        }
+
         /* ============ Footer (centered, miruro-style) ============ */
         footer { border-top: 1px solid var(--c-border); }
         footer .row { justify-content: center; text-align: center; }
@@ -1254,6 +1292,8 @@ const state = {
     currentMegapSource: 'ani',
     aniskip: null,
     lastSource: null,       // { type: 'megap'|'apiplayer', ... } for auto-next resume
+    _autoFallback: false,   // when true, auto-try next server on failure
+    _fallbackIndex: 0,      // current position in the fallback chain
     airedCount: null,
     totalEpisodes: null,
     epView: localStorage.getItem('ak_epView') || 'grid',
@@ -1333,8 +1373,6 @@ function savePlaying(current, duration) {
     const store = loadPlayingStore();
     store[contSlug()] = [state.currentEp, Math.round(current || 0), Math.round(duration || 0)];
     localStorage.setItem('user.playing', JSON.stringify(store));
-    // Optional account sync (watchlist + history) for logged-in users.
-    acctThrottledSync();
 }
 function getResumeTime() {
     const entry = loadPlayingStore()[contSlug()];
@@ -1879,7 +1917,7 @@ async function selectEpisode(numStr, opts = {}) {
     if (opts.resume) {
         resumeSource();
     } else if (!state.currentMegap) {
-        await selectMegapServer('sub', 'ani');
+        startFallback();
     }
 }
 
@@ -1910,6 +1948,58 @@ function updateSvCount() {
         const n = document.querySelectorAll('#serverPanel .sv-btn').length;
         svCountEl.textContent = n ? n + (n === 1 ? ' server' : ' servers') : '—';
     }
+}
+
+// ============ AUTO-SERVER FALLBACK ============
+// When a server fails, automatically try the next one in the chain.
+const FALLBACK_CHAIN = [
+    () => selectMegapServer('sub', 'ani'),
+    () => selectMegapServer('dub', 'ani'),
+    () => selectMegapServer('sub', 'mal'),
+    () => selectMegapServer('dub', 'mal'),
+    () => selectApiplayerServer(),
+    () => tryAnimexFallback(),
+];
+
+async function tryAnimexFallback() {
+    // Try the first available AnimeX provider for the current episode.
+    try {
+        await resolveAnilist();
+        if (!state.anilistId) throw new Error('No AniList id');
+        const resp = await fetch(`/api/animex/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}`);
+        const data = await resp.json();
+        const firstSub = (data.sub || [])[0];
+        const firstDub = (data.dub || [])[0];
+        const first = firstSub || firstDub;
+        if (!first) throw new Error('No AnimeX providers available');
+        await selectAnimexServer(firstSub ? 'sub' : 'dub', first.id);
+    } catch (e) {
+        throw e;
+    }
+}
+
+function advanceFallback() {
+    if (!state._autoFallback) return false;
+    state._fallbackIndex++;
+    if (state._fallbackIndex >= FALLBACK_CHAIN.length) {
+        state._autoFallback = false;
+        state._fallbackIndex = 0;
+        showError('All servers failed for this episode.');
+        return false;
+    }
+    // Brief delay so the UI doesn't flash too fast between servers
+    setTimeout(() => {
+        if (state._autoFallback) {
+            FALLBACK_CHAIN[state._fallbackIndex]();
+        }
+    }, 400);
+    return true;
+}
+
+function startFallback() {
+    state._autoFallback = true;
+    state._fallbackIndex = 0;
+    FALLBACK_CHAIN[0]();
 }
 
 // ============ PLAYER URL BUILDER ============
@@ -2009,6 +2099,12 @@ async function selectMegapServer(lang, source = 'ani') {
         loadingOverlay.style.display = 'none';
     } catch (e) {
         console.error('MegaPlay stream failed:', e);
+        if (state._autoFallback) {
+            const label = (source === 'mal' ? 'MEGA CLUB' : 'MEGA PLAY') + ' ' + lang.toUpperCase();
+            console.warn(label + ' failed, trying next server...');
+            advanceFallback();
+            return;
+        }
         showError(e.message);
     }
 }
@@ -2070,6 +2166,11 @@ async function selectApiplayerServer() {
         loadingOverlay.style.display = 'none';
     } catch (e) {
         console.error('Apiplayer stream failed:', e);
+        if (state._autoFallback) {
+            console.warn('APIPLAYER failed, trying next server...');
+            advanceFallback();
+            return;
+        }
         loadingOverlay.style.display = 'none';
         showError('Apiplayer stream failed: ' + e.message);
     }
@@ -2141,6 +2242,11 @@ async function selectAnimexServer(lang, providerId) {
         loadingOverlay.style.display = 'none';
     } catch (e) {
         console.error('AnimeX stream failed:', e);
+        if (state._autoFallback) {
+            console.warn('ANIMEX ' + lang.toUpperCase() + ' ' + providerId + ' failed, trying next server...');
+            advanceFallback();
+            return;
+        }
         loadingOverlay.style.display = 'none';
         showError('AnimeX stream failed: ' + e.message);
     }
@@ -2255,41 +2361,7 @@ function renderExtrasGrid(grid, items, tagFn) {
     `).join('');
 }
 
-// ============ ACCOUNT SYNC (watchlist + history) ============
-async function apiJSON(url, opts) {
-    try { const r = await fetch(url, opts); return { r, d: await r.json().catch(() => ({})) }; }
-    catch (e) { return { r: null, d: { error: e.message } }; }
-}
-function accountWatchedlist() {
-    const l = window.__watchlist || {};
-    return l[state.anilistId] ? l[state.anilistId].status || '' : '';
-}
-async function syncToAccount(event) {
-    try {
-        const me = await apiJSON('/api/auth/me');
-        if (!me.r || !me.d.user) return;
-        // save watchlist entry with current status
-        const status = state.mylist && state.mylist.status ? state.mylist.status : '';
-        await apiJSON('/api/library/watchlist', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ anilistId: state.anilistId, title: state.title || '', image: state.poster || '', format: (state.info && state.info.format) || '', status }),
-        });
-        // save history
-        await apiJSON('/api/library/history', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ anilistId: state.anilistId, episode: Number(state.currentEp) || 1, title: state.title || '', image: state.poster || '' }),
-        });
-    } catch (e) {}
-}
-// Save progress to a linked account on player progress (throttled).
-const __acctThrottle = {};
-function acctThrottledSync() {
-    if (!state || !state.currentEp || !state.anilistId) return;
-    const now = Date.now();
-    if (__acctThrottle[state.anilistId] && now - __acctThrottle[state.anilistId] < 15000) return;
-    __acctThrottle[state.anilistId] = now;
-    syncToAccount();
-}
+
 
 function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -2335,6 +2407,13 @@ function expandPlayer() {
 
 // ============ HELPERS ============
 function retryLastServer() {
+    state._autoFallback = false;
+    state._fallbackIndex = 0;
+    if (state.lastSource) {
+        if (state.lastSource.type === 'megap') return selectMegapServer(state.lastSource.lang || 'sub', state.lastSource.source || 'ani');
+        if (state.lastSource.type === 'apiplayer') return selectApiplayerServer();
+        if (state.lastSource.type === 'animex') return selectAnimexServer(state.lastSource.lang || 'sub', state.lastSource.providerId);
+    }
     if (state.currentMegap) return selectMegapServer(state.currentMegap, state.currentMegapSource || 'ani');
     if (state.currentEp) return selectMegapServer('sub', 'ani');
     return selectApiplayerServer();

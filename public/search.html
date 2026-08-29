@@ -162,6 +162,44 @@
             #search .search-popup .foot .hint { display: none; }
         }
 
+        /* ============ Mobile search overrides ============ */
+        @media (max-width: 1199.98px) {
+            #search-toggler { display: block; }
+            #search {
+                display: none !important;
+                position: absolute;
+                top: 100%; left: 0; right: 0;
+                z-index: 80;
+                padding: 10px;
+                background: var(--c-surface);
+                border-bottom: 1px solid var(--c-border);
+            }
+            #search.show { display: block !important; }
+            #search form {
+                border-radius: 12px;
+                height: 48px;
+                max-width: 100%;
+                border: 1px solid var(--c-border);
+            }
+            #search form input { font-size: 1rem; }
+            #search .search-popup {
+                border-radius: 12px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+                margin-top: 8px;
+                max-height: 50vh;
+                overflow-y: auto;
+            }
+            #search .search-popup .s-close { display: none; }
+            #search .search-popup .body { padding: 4px; }
+            #search .search-popup .foot { padding: 8px 12px; }
+            #search .search-popup .foot .hint { display: none; }
+        }
+        @media (max-width: 575.98px) {
+            #search form { height: 44px; border-radius: 10px; }
+            #search form input { font-size: 0.95rem; }
+            #search .search-popup { border-radius: 10px; }
+        }
+
         /* ============ Results page ============ */
         .search-page { max-width: 1500px; margin: 0 auto; padding: 24px 20px 48px; }
         .search-page .result-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
