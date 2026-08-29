@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Watch Anime - AnimeKai</title>
+    <title>Watch Anime - AnimeVerse</title>
+    <link rel="shortcut icon" href="img/TITLEBAR.PNG" type="image/x-icon"/>
     <link rel="stylesheet" href="css/style.css?v=2">
     <link rel="stylesheet" href="css/themes.css">
     <script type="text/javascript" src="js/theme.js"></script>
@@ -934,7 +935,7 @@
                             </div>
                             <div class="logo">
                                 <a href="/home">
-                                    <img src='img/logo.png' alt='AnimeKai'/>
+                                    <img src='img/logo.png' alt='AnimeVerse'/>
                                 </a>
                             </div>
                             <div id="search">
@@ -1195,10 +1196,10 @@
             <div class="col-lg-5">
                 <div class="logos">
                     <div class="logo">
-                        <img src='img/logo.png' alt='AnimeKai'/>
+                        <img src='img/logo.png' alt='AnimeVerse'/>
                     </div>
                 </div>
-                <div class="copyright">&copy; <span id="year">2026</span> AnimeKai &middot; Made by <strong>King A</strong> <span class="version-badge">v0.1.0</span></div>
+                <div class="copyright">&copy; <span id="year">2026</span> AnimeVerse &middot; Made by <strong>King A</strong> <span class="version-badge">v0.1.0</span></div>
                 <div class="disclaimer">This site does not store any files on its server. All contents are provided by non-affiliated third parties. <a href="/pages/dmca" rel="nofollow">Copyright &amp; DMCA</a></div>
             </div>
         </div>
@@ -1453,7 +1454,7 @@ if (anilistIdParam) {
             if (data.resolved) {
                 applyInfo(data.resolved);
                 if (data.resolved.title) {
-                    document.title = data.resolved.title + ' - AnimeKai';
+                    document.title = data.resolved.title + ' - AnimeVerse';
                     pageTitle.textContent = data.resolved.title;
                 }
             }
@@ -1563,7 +1564,7 @@ function applyInfo(resolved) {
     if (!resolved) return;
     if (resolved.title && !state.title) {
         state.title = resolved.title;
-        document.title = resolved.title + ' - AnimeKai';
+        document.title = resolved.title + ' - AnimeVerse';
         pageTitle.textContent = resolved.title;
     }
     const info = resolved.info;
