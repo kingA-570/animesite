@@ -1345,6 +1345,15 @@
         });
 
         // Fullscreen (switches to landscape orientation on mobile)
+        window.addEventListener('message', (ev) => {
+            const d = ev.data || {};
+            if (d.type === 'set-time' && typeof d.seconds === 'number' && !Number.isNaN(d.seconds)) {
+                try { video.currentTime = d.seconds; if (video.paused) video.play(); } catch (e) {}
+            }
+            if (d.type === 'set-play' && typeof d.paused === 'boolean') {
+                try { if (d.paused) video.pause(); else video.play(); } catch (e) {}
+            }
+        });
         const isMobileFs = () => window.matchMedia('(max-width: 768px)').matches;
         async function lockLandscape() {
             if (isMobileFs() && screen.orientation && screen.orientation.lock) {

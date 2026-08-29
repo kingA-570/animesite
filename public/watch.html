@@ -1041,6 +1041,7 @@
                 <div class="server-body">
                     <div id="megapList"></div>
                     <div id="apipList"></div>
+                    <div id="animexList"></div>
                 </div>
             </div>
 
@@ -1059,6 +1060,10 @@
                     <div class="w-airing" id="infoAiring" style="display:none"></div>
                     <div class="w-meta" id="infoMeta"></div>
                     <div class="w-genres" id="infoGenres"></div>
+                    <div class="w-meta" id="infoMeta2" style="display:none"></div>
+                    <div class="trailer-row" style="display:none;margin-top:10px">
+                        <button class="trailer-btn" id="trailerBtn" type="button" onclick="openTrailer()"><i class="fas fa-play"></i> Watch Trailer</button>
+                    </div>
                     <div class="list-ctl" id="listCtl">
                         <button class="list-btn" id="listBtn" type="button">
                             <i class="fas fa-plus"></i> <span>Add to My List</span>
@@ -1228,6 +1233,8 @@ function savePlaying(current, duration) {
     const store = loadPlayingStore();
     store[contSlug()] = [state.currentEp, Math.round(current || 0), Math.round(duration || 0)];
     localStorage.setItem('user.playing', JSON.stringify(store));
+    // Optional account sync (watchlist + history) for logged-in users.
+    acctThrottledSync();
 }
 function getResumeTime() {
     const entry = loadPlayingStore()[contSlug()];
@@ -1734,6 +1741,8 @@ async function selectEpisode(numStr, opts = {}) {
     // is the manual second megaplay-family option. APIPLAYER (TMDB) is last.
     renderMegapOptions();
     renderApiplayerOptions();
+    renderAnimexOptions();
+    loadTrailer();
 
     if (opts.resume) {
         resumeSource();
@@ -1942,8 +1951,129 @@ function resumeSource() {
         selectMegapServer(ls.lang || 'sub', ls.source || 'ani');
     } else if (ls.type === 'apiplayer') {
         selectApiplayerServer();
+    } else if (ls.type === 'animex') {
+        selectAnimexServer(ls.lang || 'sub', ls.providerId);
     }
 }
+
+// ============ ANIMEX SERVERS (animex.one provider) ============
+// AnimeX exposes unauthenticated sub/dub providers per episode that return
+// ready-to-play HLS. Rendered as a third server family alongside MegaPlay and
+// apiplayer.
+async function renderAnimexOptions() {
+    const list = document.getElementById('animexList');
+    if (!list) return;
+    try { await resolveAnilist(); } catch (e) {}
+    if (!state.anilistId || !state.currentEp) { if (list) list.innerHTML = ''; return; }
+    try {
+        const resp = await fetch(`/api/animex/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}`);
+        const data = await resp.json();
+        if (!data.available || (!data.sub.length && !data.dub.length)) { list.innerHTML = ''; return; }
+        if (data.slug) state.animexSlug = data.slug;
+        const mk = (arr, lang) => (arr && arr.length) ? `
+            <div class="server-section">
+                <div class="server-type-label">${lang.toUpperCase()}</div>
+                <div class="server-list">
+                    ${arr.map(p => `<div class="sv-btn sub ${state.currentAnimex && state.currentAnimex.lang === lang && state.currentAnimex.providerId === p.id ? 'active' : ''}" data-animex="${lang}:${p.id}" title="${escapeHtml(p.tip || '')}" onclick="selectAnimexServer('${lang}','${p.id}')">${p.id}</div>`).join('')}
+                </div>
+            </div>` : '';
+        list.innerHTML = `
+            <div class="server-section" style="margin-top:6px">
+                <div class="server-type-label">ANIMEX PROVIDERS</div>
+                ${mk(data.sub, 'sub')}${mk(data.dub, 'dub')}
+            </div>`;
+        updateSvCount();
+    } catch (e) {
+        list.innerHTML = '';
+    }
+}
+
+async function selectAnimexServer(lang, providerId) {
+    if (!state.anilistId || !state.currentEp) return;
+    state.currentAnimex = { lang, providerId };
+    state.lastSource = { type: 'animex', lang, providerId };
+    document.querySelectorAll('[data-animex]').forEach(btn => btn.classList.toggle('active', btn.dataset.animex === lang + ':' + providerId));
+    document.querySelectorAll('#megapList .sv-btn, #apipList .sv-btn').forEach(btn => btn.classList.remove('active'));
+    currentEpType.textContent = 'ANIMEX · ' + lang.toUpperCase() + ' · ' + providerId;
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading AnimeX stream...';
+    try {
+        const resp = await fetch(`/api/animex/stream?anilistId=${state.anilistId}&episode=${encodeURIComponent(state.currentEp)}&type=${lang}&providerId=${providerId}`);
+        const data = await resp.json();
+        if (!data.m3u8Url) throw new Error(data.error || 'AnimeX returned no stream');
+        playerFrame.src = data.m3u8Url; // already server-relayed via /proxy-video
+        loadingOverlay.style.display = 'none';
+    } catch (e) {
+        console.error('AnimeX stream failed:', e);
+        loadingOverlay.style.display = 'none';
+        showError('AnimeX stream failed: ' + e.message);
+    }
+}
+
+// ============ TRAILER ============
+let trailerUrl = '';
+async function loadTrailer() {
+    try {
+        if (!state.anilistId) await resolveAnilist();
+        if (!state.anilistId) return;
+        const resp = await fetch(`/api/trailer?anilistId=${state.anilistId}`);
+        const data = await resp.json();
+        if (data.trailer) {
+            trailerUrl = data.trailer.url;
+            const row = document.querySelector('.trailer-row');
+            if (row) row.style.display = 'block';
+        }
+    } catch (e) {}
+}
+function openTrailer() {
+    if (!trailerUrl) { showError('Trailer unavailable.'); return; }
+    const dim = document.createElement('div');
+    dim.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;';
+    dim.innerHTML = `<div style="position:relative;width:min(900px,92vw);aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden">
+        <button style="position:absolute;top:-38px;right:0;background:none;border:0;color:#fff;font-size:1.6rem;cursor:pointer" onclick="this.closest('div').remove();document.body.removeChild(${(dim)?'dimEl':'null'})">&times;</button>
+        <iframe src="${trailerUrl}" style="width:100%;height:100%;border:0" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>
+    </div>`;
+    document.body.appendChild(dim);
+    dim.querySelector('button').onclick = () => document.body.removeChild(dim);
+}
+
+// ============ ACCOUNT SYNC (watchlist + history) ============
+async function apiJSON(url, opts) {
+    try { const r = await fetch(url, opts); return { r, d: await r.json().catch(() => ({})) }; }
+    catch (e) { return { r: null, d: { error: e.message } }; }
+}
+function accountWatchedlist() {
+    const l = window.__watchlist || {};
+    return l[state.anilistId] ? l[state.anilistId].status || '' : '';
+}
+async function syncToAccount(event) {
+    try {
+        const me = await apiJSON('/api/auth/me');
+        if (!me.r || !me.d.user) return;
+        // save watchlist entry with current status
+        const status = state.mylist && state.mylist.status ? state.mylist.status : '';
+        await apiJSON('/api/library/watchlist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ anilistId: state.anilistId, title: state.title || '', image: state.poster || '', format: (state.info && state.info.format) || '', status }),
+        });
+        // save history
+        await apiJSON('/api/library/history', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ anilistId: state.anilistId, episode: Number(state.currentEp) || 1, title: state.title || '', image: state.poster || '' }),
+        });
+    } catch (e) {}
+}
+// Save progress to a linked account on player progress (throttled).
+const __acctThrottle = {};
+function acctThrottledSync() {
+    if (!state || !state.currentEp || !state.anilistId) return;
+    const now = Date.now();
+    if (__acctThrottle[state.anilistId] && now - __acctThrottle[state.anilistId] < 15000) return;
+    __acctThrottle[state.anilistId] = now;
+    syncToAccount();
+}
+
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 window.addEventListener('message', (e) => {
     const d = e.data || {};
@@ -2241,6 +2371,180 @@ console.log('Watch page initialized. Slug:', state.slug);
                 if (inp) inp.focus();
             }
         });
+    }
+})();
+</script>
+<script>
+// ============ WATCH TOGETHER (sync + chat) ============
+(function () {
+    const CTRL_CSS = `#wtBtn{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;padding:6px 9px;margin-right:6px;border-radius:8px;border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);cursor:pointer}
+#wtBtn.active{background:var(--c-accent);border-color:var(--c-accent);color:var(--c-accent-text)}
+#wtModal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1200;display:none;align-items:center;justify-content:center}
+#wtModal .box{width:min(420px,92vw);background:var(--c-surface);border:1px solid var(--c-border);border-radius:14px;padding:20px}
+#wtModal h3{margin:0 0 12px;color:var(--c-text-bright);font-size:1.05rem}
+#wtModal input{width:100%;box-sizing:border-box;margin:6px 0 10px;padding:9px;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:8px;outline:none}
+#wtModal button{background:var(--c-accent);color:var(--c-accent-text);border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;margin-right:6px}
+#wtModal .chat{height:160px;overflow-y:auto;border:1px solid var(--c-border);border-radius:8px;padding:8px;margin:10px 0;background:var(--c-bg);font-size:.8rem}
+#wtModal .chat .row{color:var(--c-text);margin:2px 0}
+#wtModal .chat .row b{color:var(--c-text-bright)}
+#wtModal .hint{font-size:.75rem;color:var(--c-text);opacity:.75;margin-top:8px}`;
+    const st = document.createElement('style'); st.textContent = CTRL_CSS; document.head.appendChild(st);
+
+    // Inject button into the player control bar.
+    function inject() {
+        const bar = document.querySelector('.controls-right') || document.querySelector('.player-col');
+        if (!bar || document.getElementById('wtBtn')) return;
+        const b = document.createElement('button');
+        b.id = 'wtBtn';
+        b.type = 'button';
+        b.innerHTML = '<i class="fas fa-users"></i> Together';
+        b.title = 'Watch Together';
+        b.onclick = openRoom;
+        bar.insertBefore(b, bar.firstChild);
+    }
+
+    let room = localStorage.getItem('wt_room') || '';
+    let name = localStorage.getItem('wt_name') || ('Guest' + Math.floor(Math.random() * 900 + 100));
+    let pollTimer = null;
+    let hostId = null;
+    let lastSeek = 0;
+
+    function openRoom() {
+        const box = document.createElement('div');
+        box.id = 'wtModal';
+        box.style.display = 'flex';
+        box.innerHTML = `<div class="box">
+            <h3><i class="fas fa-users"></i> Watch Together</h3>
+            <label style="font-size:.8rem">Room code</label>
+            <input id="wtRoom" placeholder="e.g. abc123" value="${room}">
+            <label style="font-size:.8rem">Display name</label>
+            <input id="wtName" placeholder="Your name" value="${name}" maxlength="20">
+            <button id="wtJoin">Create / Join</button>
+            ${room ? `<button id="wtCopy">Copy invite</button>` : ''}
+            <div class="chat" id="wtChat"></div>
+            <div style="display:flex;gap:6px">
+                <input id="wtMsg" placeholder="Say something..." style="flex:1;margin:0">
+                <button id="wtSend">Send</button>
+            </div>
+            <div class="hint">Host can sync everyone to their position. Peers get a "Sync" button that matches your host timeline.</div>
+        </div>`;
+        document.body.appendChild(box);
+        box.addEventListener('click', (e) => { if (e.target === box) close(); });
+        document.getElementById('wtJoin').onclick = () => {
+            room = document.getElementById('wtRoom').value.trim().toLowerCase().replace(/\W+/g, '');
+            name = document.getElementById('wtName').value.trim() || name;
+            localStorage.setItem('wt_room', room); localStorage.setItem('wt_name', name);
+            startPolling();
+        };
+        const copyBtn = document.getElementById('wtCopy');
+        if (copyBtn) copyBtn.onclick = () => { copyRoom(); };
+        document.getElementById('wtSend').onclick = sendChat;
+        document.getElementById('wtMsg').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+        setInterval(() => { const r = document.getElementById('wtRoom'); if (r) r.placeholder = room ? room : 'e.g. abc123'; }, 1000);
+        const eb = document.getElementById('wtJoin'); if (eb) eb.click();
+    }
+    function close() { const m = document.getElementById('wtModal'); if (m) m.remove(); }
+
+    function copyRoom() {
+        const url = location.origin + location.pathname + location.search + '&room=' + room;
+        (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.resolve()).catch(() => {});
+    }
+
+    function roomApi(body) {
+        if (!room) return Promise.resolve(null);
+        const opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+        return fetch('/api/watch-together?room=' + encodeURIComponent(room), opts).then(r => r.json()).catch(() => null);
+    }
+
+    async function startPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        // Claim host if none exists.
+        const cur = await roomApi();
+        if (!cur || !cur.state || !cur.state.host) {
+            hostId = 'host-' + Math.random().toString(36).slice(2, 8);
+            await roomApi({ host: hostId, hostName: name, anilistId: window.state ? window.state.anilistId : null, episode: window.state ? window.state.currentEp : null, time: 0, playing: false, chat: [] });
+        } else {
+            hostId = null;
+        }
+        renderChat(cur && cur.state ? cur.state.chat : []);
+        pollTimer = setInterval(poll, 3000);
+    }
+
+    async function poll() {
+        const d = await roomApi();
+        if (!d) return;
+        const s = d.state;
+        if (!s) return;
+        renderChat(s.chat || []);
+        const btn = document.getElementById('wtBtn');
+        if (btn) btn.classList.add('active');
+        // If I am host, broadcast current timeline.
+        if (hostId && s.host === hostId && window.state) {
+            const v = document.getElementById('playerFrame');
+            let time = 0;
+            try { const t = parseFloat(localStorage.getItem('wt_time') || '0'); time = t; } catch (e) {}
+            roomApi({ host: hostId, hostName: name, anilistId: window.state.anilistId, episode: window.state.currentEp, time, playing: false, chat: s.chat, lastSync: Date.now() });
+            return;
+        }
+        // Peer: offer a sync button when a sync ping occurs or time drifts.
+        if (s.host && s.host !== hostId && s.anilistId && String(s.anilistId) === String(window.state && window.state.anilistId) && String(s.episode) === String(window.state && window.state.currentEp)) {
+            showSyncOffer(s);
+        }
+    }
+
+    function showSyncOffer(s) {
+        let btn = document.getElementById('wtSyncBtn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'wtSyncBtn';
+            btn.style.cssText = 'position:fixed;bottom:90px;right:16px;z-index:1100;background:var(--c-accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.4);cursor:pointer';
+            btn.onclick = () => {
+                clearTimeout(syncTimer);
+                btn.remove();
+                const iframe = document.getElementById('playerFrame');
+                if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({ type: 'set-time', seconds: s.time || 0 }, '*');
+            };
+            document.body.appendChild(btn);
+        }
+        btn.textContent = 'Sync to host (' + fmt(s.time) + ')';
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(() => { if (btn.parentNode) btn.remove(); }, 12000);
+    }
+    let syncTimer = null;
+    function fmt(t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+    function sendChat() {
+        const inp = document.getElementById('wtMsg');
+        const text = (inp.value || '').trim().slice(0, 200);
+        if (!text) return;
+        inp.value = '';
+        roomApi({ msg: { name, text, at: Date.now() } });
+    }
+    function renderChat(msgs) {
+        const el = document.getElementById('wtChat');
+        if (!el) return;
+        const last = msgs.slice(-40);
+        el.innerHTML = last.map(m => `<div class="row"><b>${escapeHtml(m.name)}:</b> ${escapeHtml(m.text)}</div>`).join('');
+        el.scrollTop = el.scrollHeight;
+    }
+    function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // Track host time via progress messages posted by the player iframe.
+    window.addEventListener('message', (e) => {
+        if (e.source !== document.getElementById('playerFrame') || !e.data) return;
+        if (e.data.type === 'player-progress') {
+            try { localStorage.setItem('wt_time', String(e.data.current || 0)); } catch (err) {}
+        }
+    });
+
+    const roomParam = new URLSearchParams(location.search).get('room');
+    if (roomParam) {
+        room = roomParam.toLowerCase().replace(/\W+/g, '');
+        localStorage.setItem('wt_room', room);
+        inject();
+        setTimeout(startPolling, 1500);
+    } else {
+        inject();
     }
 })();
 </script>

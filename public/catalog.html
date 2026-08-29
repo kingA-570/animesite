@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Catalog - AnimeVerse</title>
+<link rel="shortcut icon" href="img/TITLEBAR.PNG" type="image/x-icon"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=2"/>
+<link rel="stylesheet" href="css/themes.css"/>
+<script src="js/theme.js"></script>
+<style>
+  body { margin:0; background:var(--c-bg); color:var(--c-text); font-family:'Nunito',system-ui,Arial,sans-serif; }
+  * { box-sizing:border-box; }
+  a { color:inherit; text-decoration:none; }
+  .topbar { position:sticky; top:0; z-index:50; background:var(--c-header); border-bottom:1px solid var(--c-border); padding:10px 16px; display:flex; align-items:center; gap:14px; }
+  .topbar .logo { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:1px; color:var(--c-text-bright); }
+  .topbar .logo span { color:var(--c-accent); }
+  .topbar nav { display:flex; gap:16px; font-weight:600; font-size:.92rem; }
+  .topbar nav a { color:var(--c-text); padding:4px 8px; border-radius:8px; }
+  .topbar nav a:hover, .topbar nav a.active { color:var(--c-text-bright); background:var(--c-hover); }
+  .wrap { max-width:1400px; margin:0 auto; padding:20px 16px; }
+  h1 { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:1px; color:var(--c-text-bright); margin:0 0 4px; }
+  .sub { color:var(--c-text); font-size:.9rem; margin-bottom:18px; opacity:.75; }
+  .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:20px; }
+  .filters input,.filters select {
+    background:var(--c-surface); color:var(--c-text); border:1px solid var(--c-border);
+    padding:9px 12px; border-radius:10px; font-size:.9rem; outline:none;
+  }
+  .filters input:focus,.filters select:focus { border-color:var(--c-accent); }
+  .filters .btn { cursor:pointer; background:var(--c-accent); color:var(--c-accent-text); border:0; border-radius:10px; padding:9px 16px; font-weight:700; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+  .card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:12px; overflow:hidden; transition:transform .15s, border-color .15s; }
+  .card:hover { transform:translateY(-4px); border-color:var(--c-accent); }
+  .card .poster { position:relative; aspect-ratio:2/3; background:var(--c-hover) center/cover no-repeat; }
+  .card .badge { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.65); color:#fff; font-size:.68rem; font-weight:700; padding:3px 7px; border-radius:6px; }
+  .card .rate { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.65); color:#ffd166; font-size:.68rem; font-weight:800; padding:3px 7px; border-radius:6px; }
+  .card .info { padding:10px; }
+  .card .info .t { font-size:.85rem; font-weight:700; color:var(--c-text-bright); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card .info .meta { font-size:.72rem; color:var(--c-text); margin-top:4px; opacity:.8; }
+  .empty { text-align:center; padding:60px 0; color:var(--c-text); opacity:.7; }
+  .spin { text-align:center; padding:60px 0; color:var(--c-text); }
+  .pages { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:22px; }
+  .pages button { background:var(--c-surface); color:var(--c-text); border:1px solid var(--c-border); border-radius:8px; padding:7px 12px; cursor:pointer; font-weight:700; }
+  .pages button:disabled { opacity:.4; cursor:default; }
+  @media(max-width:560px){ .grid{ grid-template-columns:repeat(auto-fill,minmax(110px,1fr));} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="/">Anime<span>Verse</span></a>
+  <nav>
+    <a href="/home">Home</a>
+    <a href="/catalog" class="active">Catalog</a>
+    <a href="/schedule">Schedule</a>
+    <a href="/profile">My List</a>
+  </nav>
+</div>
+<div class="wrap">
+  <h1>Anime Catalog</h1>
+  <div class="sub">Browse thousands of anime by season, year, format and more.</div>
+  <div class="filters">
+    <input id="q" placeholder="Search titles..." style="min-width:220px;">
+    <select id="season">
+      <option value="">Any Season</option>
+      <option value="WINTER">Winter</option>
+      <option value="SPRING">Spring</option>
+      <option value="SUMMER">Summer</option>
+      <option value="FALL">Fall</option>
+    </select>
+    <select id="year">
+      <option value="">Any Year</option>
+      <option value="2026">2026</option><option value="2025">2025</option>
+      <option value="2024">2024</option><option value="2023">2023</option>
+      <option value="2022">2022</option><option value="2021">2021</option>
+    </select>
+    <select id="format">
+      <option value="">All Formats</option>
+      <option value="TV">TV</option><option value="TV_SHORT">TV Short</option>
+      <option value="MOVIE">Movie</option><option value="OVA">OVA</option>
+      <option value="ONA">ONA</option><option value="SPECIAL">Special</option>
+    </select>
+    <select id="sort">
+      <option value="popular">Most Popular</option>
+      <option value="score">Top Rated</option>
+      <option value="trending">Trending</option>
+      <option value="recent">Newest</option>
+      <option value="title">Title A-Z</option>
+    </select>
+    <button class="btn" id="apply">Apply</button>
+  </div>
+  <div id="grid" class="grid"><div class="spin">Loading...</div></div>
+  <div class="pages">
+    <button id="prev" disabled>&laquo; Prev</button><span id="pageInfo" style="font-size:.85rem;opacity:.7"></span><button id="next" disabled>Next &raquo;</button>
+  </div>
+</div>
+<script>
+const grid=document.getElementById('grid');
+const cache={};
+const PAGE=120;
+let offset=0;
+let cur=[];
+
+function card(m){
+  const el=document.createElement('a');
+  el.className='card';
+  el.href='/watch.html?anilistId='+m.id;
+  const fmt=(m.format||'TV').replace('_',' ');
+  const img=m.image;
+  el.innerHTML=`<div class="poster" style="background-image:url('${img}')">
+      <span class="badge">${fmt}</span>
+      ${m.score?`<span class="rate"><i class="fas fa-star"></i> ${m.score}</span>`:''}
+    </div>
+    <div class="info"><div class="t">${m.title}</div><div class="meta">${m.year?m.year:''}${m.subCount?` &middot; ${m.subCount} eps`:''}</div></div>`;
+  return el;
+}
+
+async function load(reset){
+  if(reset) offset=0;
+  const q=document.getElementById('q').value.trim();
+  const season=document.getElementById('season').value;
+  const year=document.getElementById('year').value;
+  const format=document.getElementById('format').value;
+  const sort=document.getElementById('sort').value;
+  const key=`${q}|${season}|${year}|${format}|${sort}|${offset}`;
+  grid.innerHTML='<div class="spin">Loading...</div>';
+  try{
+    let data;
+    if(cache[key]){ data=cache[key]; }
+    else{
+      const params=new URLSearchParams({sort});
+      if(season)params.set('season',season);
+      if(year)params.set('year',year);
+      if(format)params.set('format',format);
+      if(q)params.set('q',q);
+      const r=await fetch('/api/catalog?'+params.toString());
+      data=await r.json();
+      // Store only the top slice; paginate locally over the fetched subset.
+      cache[key]=data;
+    }
+    const all=data.results||[];
+    const slice=all.slice(offset,offset+PAGE);
+    cur=slice;
+    grid.innerHTML='';
+    if(!slice.length){ grid.innerHTML='<div class="empty"><i class="fas fa-film" style="font-size:2rem;margin-bottom:10px"></i><div>No titles found.</div></div>'; }
+    else slice.forEach(m=>grid.appendChild(card(m)));
+    document.getElementById('pageInfo').textContent=`${all.length?offset+1:0}-${Math.min(offset+PAGE,all.length)} of ${all.length}`;
+    document.getElementById('prev').disabled=offset<=0;
+    document.getElementById('next').disabled=offset+PAGE>=all.length;
+  }catch(e){
+    grid.innerHTML='<div class="empty">Failed to load catalog.</div>';
+  }
+}
+document.getElementById('apply').addEventListener('click',()=>load(true));
+document.getElementById('q').addEventListener('keydown',(e)=>{ if(e.key==='Enter')load(true); });
+document.getElementById('prev').addEventListener('click',()=>{ offset=Math.max(0,offset-PAGE); load(false); });
+document.getElementById('next').addEventListener('click',()=>{ offset+=PAGE; load(false); });
+load(true);
+</script>
+</body>
+</html>

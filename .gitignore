@@ -3,3 +3,6 @@ node_modules/
 .env
 nul
 .DS_Store
+
+animeverse.db*
+.idea/

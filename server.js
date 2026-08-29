@@ -3,6 +3,16 @@ const fs = require('fs/promises');
 const path = require('path');
 const { URL } = require('url');
 const zlib = require('zlib');
+const crypto = require('crypto');
+
+const dbMod = require('./db');
+const animexScraper = require('./animex');
+
+const {
+  registerUser, loginUser, logoutUser, getUserBySession,
+  addWatchlist, removeWatchlist, getWatchlist, getWatchlistIds,
+  saveHistory, getHistory, getHistoryItem,
+} = dbMod;
 
 // ========================
 // CONFIGURATION
@@ -21,6 +31,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN || '';
 const MIRURO_BASE = 'https://www.miruro.to';
 const MIRURO_PIPE_URL = `${MIRURO_BASE}/api/secure/pipe`;
 const ANILIST_GRAPHQL = 'https://graphql.anilist.co';
+const ANIMEX_GRAPHQL = 'https://graphql.animex.one';
 const MIRURO_HEADERS = {
   'User-Agent': USER_AGENT,
   'Referer': `${MIRURO_BASE}/`,
@@ -970,6 +981,9 @@ async function serveStatic(reqUrl, res, req) {
     if (pathname === '/search' || pathname === '/search/') pathname = '/search.html';
     if (pathname === '/watch' || pathname === '/watch/') pathname = '/watch.html';
     if (pathname === '/player' || pathname === '/player/') pathname = '/player.html';
+    if (pathname === '/catalog' || pathname === '/catalog/') pathname = '/catalog.html';
+    if (pathname === '/schedule' || pathname === '/schedule/') pathname = '/schedule.html';
+    if (pathname === '/profile' || pathname === '/profile/') pathname = '/profile.html';
 
     // Handle /watch/ path with slug - redirect to watch.html?slug=...
     const watchMatch = pathname.match(/^\/watch\/([^/]+)(?:\/([^/]+))?$/);
@@ -1696,6 +1710,90 @@ function formatAnilistForHome(media) {
 // ========================
 // REQUEST ROUTER
 // ========================
+// Watch-together room state (lightweight, in-memory room store).
+// Hosts call POST /api/watch-together?room=.. to publish {time, playing, episode,
+// anilistId, chat[]} and viewers poll GET to stay in sync.
+const watchTogetherStore = {};
+const watchTogetherRooms = new Set();
+setInterval(() => {
+  const now = Date.now();
+  for (const room of watchTogetherRooms) {
+    const s = watchTogetherStore[room];
+    if (s && now - (s.updatedAt || 0) > 15 * 60 * 1000) {
+      delete watchTogetherStore[room];
+      watchTogetherRooms.delete(room);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Airing schedule grouped by weekday. AnimeX exposes this; fall back to a
+// rolling AniList "currently airing" fetch when the remote is unreachable.
+async function animeSchedule() {
+  try {
+    const res = await fetch(`${ANIMEX_GRAPHQL}/api/schedule`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.status !== 200) throw new Error('schedule unavailable');
+    return await res.json();
+  } catch (err) {
+    // Fallback: pull currently-airing shows from AniList and bucket by start day.
+    const gql = `query { Page(perPage: 100) {
+      media(type: ANIME, isAdult: false, status: RELEASING) {
+        id title { romaji english } coverImage { extraLarge large }
+        format episodes nextAiringEpisode { episode airingAt }
+        seasonYear averageScore startDate { year month day }
+      } } }`;
+    const r = await fetch(ANILIST_GRAPHQL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: gql }), signal: AbortSignal.timeout(15000),
+    });
+    const json = await r.json();
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const out = { source: 'anilist' };
+    days.forEach((d) => { out[d] = []; });
+    for (const m of (json?.data?.Page?.media || [])) {
+      const airing = m.nextAiringEpisode?.airingAt;
+      const day = airing ? days[new Date(airing * 1000).getUTCDay()] : 'sunday';
+      out[day].push(m);
+    }
+    return out;
+  }
+}
+
+// Catalog browsing by season/year/format/sort (matches AnimeX's catalog page).
+async function animeCatalog({ season, year, format, status, sort = 'popular', q = '' }) {
+  const fields = `id idMal title { romaji english native } coverImage { extraLarge large color }
+    bannerImage format episodes duration status seasonYear season averageScore meanScore
+    genres description nextAiringEpisode { episode airingAt timeUntilAiring }
+    startDate { year month day } studios { nodes { name isAnimationStudio } }`;
+  const args = ['type: ANIME', 'isAdult: false'];
+  const vars = {};
+  const defs = [];
+  const add = (v, t) => { const k = 'a' + (Object.keys(vars).length); vars[k] = v; defs.push(`$${k}: ${t}`); return `$${k}`; };
+  if (q) { args.push(`search: ${add(q, 'String')}`); }
+  if (season) { args.push(`season: ${add(season, 'MediaSeason')}`); }
+  if (year) { args.push(`seasonYear: ${add(Number(year), 'Int')}`); }
+  if (format) { args.push(`format: ${add(format, 'MediaFormat')}`); }
+  if (status) { args.push(`status: ${add(status, 'MediaStatus')}`); }
+  const SORTS = {
+    popular: 'POPULARITY_DESC', score: 'SCORE_DESC', recent: 'START_DATE_DESC',
+    updated: 'UPDATED_AT_DESC', title: 'TITLE_ROMAJI', trending: 'TRENDING_DESC',
+  };
+  args.push(`sort: ${SORTS[sort] || SORTS.popular}`);
+  const gql = `query($perPage: Int${defs.length ? ', ' + defs.join(', ') : ''}) {
+    Page(perPage: $perPage) { media(${args.join(', ')}) { ${fields} } } }`;
+  const r = await fetch(ANILIST_GRAPHQL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json',
+      'Accept': 'application/json' },
+    body: JSON.stringify({ query: gql, variables: { ...vars, perPage: 200 } }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (r.status !== 200) throw new Error('catalog failed');
+  const json = await r.json();
+  return (json?.data?.Page?.media || []).map(formatAnilistForHome);
+}
+
 const server = http.createServer(async (req, res) => {
   const startTime = Date.now();
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -2152,6 +2250,232 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
+    }
+
+    // ========== ROUTE: account & library (auth via session cookie) ==========
+    function currentUser() {
+      const cookie = req.headers['cookie'] || '';
+      const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
+      return m ? getUserBySession(m[1]) : null;
+    }
+    const jsonBody = async () => {
+      try { return JSON.parse((await getRequestBody(req)).toString('utf8') || '{}'); } catch { return {}; }
+    };
+    const setSessionCookie = (res, token) => {
+      res.setHeader('Set-Cookie', `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
+    };
+
+    if (reqUrl.pathname === '/api/auth/register' && req.method === 'POST') {
+      const { username, password, email } = await jsonBody();
+      if (!username || !password || password.length < 6) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Valid username and password (6+ chars) required' }));
+      }
+      const result = registerUser(username, password, email);
+      if (result.error) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: result.error }));
+      }
+      setSessionCookie(res, result.token);
+      log(req.method, reqUrl.pathname, 200, `[AUTH] register ${username}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ user: result.user }));
+    }
+
+    if (reqUrl.pathname === '/api/auth/login' && req.method === 'POST') {
+      const { username, password } = await jsonBody();
+      const result = loginUser(username || '', password || '');
+      if (result.error) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: result.error }));
+      }
+      setSessionCookie(res, result.token);
+      log(req.method, reqUrl.pathname, 200, `[AUTH] login ${result.user.username}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ user: result.user }));
+    }
+
+    if (reqUrl.pathname === '/api/auth/logout' && req.method === 'POST') {
+      const cookie = req.headers['cookie'] || '';
+      const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
+      if (m) logoutUser(m[1]);
+      res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true }));
+    }
+
+    if (reqUrl.pathname === '/api/auth/me') {
+      const user = currentUser();
+      log(req.method, reqUrl.pathname, 200, user ? `[AUTH] ${user.username}` : '[AUTH] guest');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ user }));
+    }
+
+    // ---------- Watchlist / library endpoints (require login) ----------
+    if (reqUrl.pathname === '/api/library/watchlist' || reqUrl.pathname === '/api/library/history') {
+      const user = currentUser();
+      if (!user) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Not authenticated' }));
+      }
+      const isHistory = reqUrl.pathname.endsWith('/history');
+      if (req.method === 'POST') {
+        const item = await jsonBody();
+        if (isHistory) saveHistory(user.id, item);
+        else if (item.anilistId) addWatchlist(user.id, item);
+        return res.end(JSON.stringify({ ok: true }));
+      }
+      if (req.method === 'DELETE') {
+        const anilistId = Number(reqUrl.searchParams.get('anilistId'));
+        if (!isHistory && anilistId) removeWatchlist(user.id, anilistId);
+        return res.end(JSON.stringify({ ok: true }));
+      }
+      const data = isHistory ? getHistory(user.id, 40) : getWatchlist(user.id);
+      const ids = getWatchlistIds(user.id);
+      log(req.method, reqUrl.pathname, 200, `[LIBRARY] ${isHistory ? 'history' : 'watchlist'} n=${data.length}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ items: data, saved: ids }));
+    }
+
+    // ========== ROUTE: /api/animex/servers (AnimeX servers for an episode) ==========
+    if (reqUrl.pathname === '/api/animex/servers') {
+      const anilistId = reqUrl.searchParams.get('anilistId');
+      const episode = parseInt(reqUrl.searchParams.get('episode') || '', 10);
+      if (!anilistId || isNaN(episode)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing anilistId and/or episode' }));
+      }
+      const data = await animexScraper.animexServers(anilistId, episode);
+      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] sub=${data.sub.length} dub=${data.dub.length}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(data));
+    }
+
+    // ========== ROUTE: /api/animex/episodes (AnimeX episode list) ==========
+    if (reqUrl.pathname === '/api/animex/episodes') {
+      const anilistId = reqUrl.searchParams.get('anilistId');
+      if (!anilistId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing anilistId parameter' }));
+      }
+      const data = await animexScraper.animexEpisodes(anilistId);
+      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] eps=${data.episodes.length}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(data));
+    }
+
+    // ========== ROUTE: /api/animex/stream (AnimeX HLS source) ==========
+    if (reqUrl.pathname === '/api/animex/stream') {
+      const anilistId = reqUrl.searchParams.get('anilistId');
+      const episode = parseInt(reqUrl.searchParams.get('episode') || '', 10);
+      const type = reqUrl.searchParams.get('type') || 'sub';
+      const provider = reqUrl.searchParams.get('providerId') || '';
+      if (!anilistId || isNaN(episode) || !provider) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing anilistId, episode and/or providerId' }));
+      }
+      const data = await animexScraper.animexSources(anilistId, episode, type, provider);
+      // Build a server-relayed HLS URL so the browser can play it with the
+      // correct referer/proxy headers (mirrors how /proxy-video is used).
+      const src = (data.sources || []).find((s) => /\.m3u8($|\?)/i.test(s.url || ''));
+      const m3u8Url = (src && !data.error)
+        ? `/proxy-video?url=${encodeURIComponent(src.url)}&referer=${encodeURIComponent((data.headers && (data.headers.Referer || data.headers.Origin)) || '')}`
+        : null;
+      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] m3u8=${m3u8Url ? 'yes' : 'no'}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        ...data,
+        providerId: provider,
+        type,
+        m3u8Url,
+        subtitles: (data.tracks || []).filter((t) => t.kind === 'captions' || t.kind === 'subtitles'),
+      }));
+    }
+
+    // ========== ROUTE: /api/trailer (official/YouTube trailer for an anime) ==========
+    if (reqUrl.pathname === '/api/trailer') {
+      const anilistId = reqUrl.searchParams.get('anilistId');
+      if (!anilistId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing anilistId parameter' }));
+      }
+      let trailer = null;
+      try {
+        const info = await anilistMediaInfo(anilistId);
+        const links = info && info.externalLinks || [];
+        const yt = links.find((l) => String(l.site || '').toLowerCase().includes('youtube') && /trailer/i.test(l.type || ''));
+        const ytId = yt && yt.url ? (yt.url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/i) || [])[1] : null;
+        if (ytId) trailer = { provider: 'youtube', id: ytId, url: `https://www.youtube.com/embed/${ytId}?autoplay=1` };
+        if (!trailer) {
+          const title = (info && (info.title?.english || info.title?.romaji)) || '';
+          const videos = await youtubeSearch(`${title} official trailer`);
+          const v = (videos || []).find((x) => x.id);
+          if (v) trailer = { provider: 'youtube', id: v.id, url: `https://www.youtube.com/embed/${v.id}?autoplay=1` };
+        }
+      } catch (err) {
+        log('TRAILER_ERR', reqUrl.search, 200, err.message);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ anilistId, trailer }));
+    }
+
+    // ========== ROUTE: /api/catalog (season/year/format/sort browse) ==========
+    if (reqUrl.pathname === '/api/catalog') {
+      const season = reqUrl.searchParams.get('season') || '';
+      const year = reqUrl.searchParams.get('year') || '';
+      const format = reqUrl.searchParams.get('format') || '';
+      const status = reqUrl.searchParams.get('status') || '';
+      const sort = reqUrl.searchParams.get('sort') || 'popular';
+      const q = reqUrl.searchParams.get('q') || '';
+      try {
+        const results = await animeCatalog({ season, year, format, status, sort, q });
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[CATALOG] ${results.length}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ results, total: results.length }));
+      } catch (err) {
+        log('CATALOG_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, results: [] }));
+      }
+    }
+
+    // ========== ROUTE: /api/schedule (airing by weekday) ==========
+    if (reqUrl.pathname === '/api/schedule') {
+      try {
+        const schedule = await animeSchedule();
+        log(req.method, reqUrl.pathname, 200, '[SCHEDULE]');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(schedule));
+      } catch (err) {
+        log('SCHEDULE_ERR', reqUrl.pathname, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
+    // ========== ROUTE: /api/watch-together (room state store) ==========
+    if (reqUrl.pathname === '/api/watch-together') {
+      const room = reqUrl.searchParams.get('room') || '';
+      if (!room) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing room parameter' }));
+      }
+      if (req.method === 'POST') {
+        const body = await jsonBody();
+        const cur = watchTogetherStore[room] || {};
+        // A chat message is appended to the room history; otherwise merge.
+        if (body.msg) {
+          const chat = Array.isArray(cur.chat) ? [...cur.chat, body.msg].slice(-120) : [body.msg];
+          watchTogetherStore[room] = { ...cur, chat, updatedAt: Date.now() };
+        } else {
+          watchTogetherStore[room] = { ...cur, ...body, chat: cur.chat || [], updatedAt: Date.now() };
+        }
+        watchTogetherRooms.add(room);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ room, state: watchTogetherStore[room] || null }));
     }
 
     // ========== ROUTE: browse redirects (/status/, /genre/, /type/, /az-list/) ==========

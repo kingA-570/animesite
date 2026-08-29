@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Schedule - AnimeVerse</title>
+<link rel="shortcut icon" href="img/TITLEBAR.PNG" type="image/x-icon"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=2"/>
+<link rel="stylesheet" href="css/themes.css"/>
+<script src="js/theme.js"></script>
+<style>
+  body { margin:0; background:var(--c-bg); color:var(--c-text); font-family:'Nunito',system-ui,Arial,sans-serif; }
+  * { box-sizing:border-box; }
+  a { color:inherit; text-decoration:none; }
+  .topbar { position:sticky; top:0; z-index:50; background:var(--c-header); border-bottom:1px solid var(--c-border); padding:10px 16px; display:flex; align-items:center; gap:14px; }
+  .topbar .logo { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:1px; color:var(--c-text-bright); }
+  .topbar .logo span { color:var(--c-accent); }
+  .topbar nav { display:flex; gap:16px; font-weight:600; font-size:.92rem; }
+  .topbar nav a { color:var(--c-text); padding:4px 8px; border-radius:8px; }
+  .topbar nav a:hover, .topbar nav a.active { color:var(--c-text-bright); background:var(--c-hover); }
+  .wrap { max-width:1400px; margin:0 auto; padding:20px 16px; }
+  h1 { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:1px; color:var(--c-text-bright); margin:0 0 4px; }
+  .daytabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 20px; }
+  .daytabs button { background:var(--c-surface); color:var(--c-text); border:1px solid var(--c-border); border-radius:10px; padding:8px 14px; cursor:pointer; font-weight:700; font-size:.85rem; text-transform:capitalize; }
+  .daytabs button.active { background:var(--c-accent); border-color:var(--c-accent); color:var(--c-accent-text); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+  .card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:12px; overflow:hidden; transition:transform .15s, border-color .15s; }
+  .card:hover { transform:translateY(-4px); border-color:var(--c-accent); }
+  .card .poster { position:relative; aspect-ratio:2/3; background:var(--c-hover) center/cover no-repeat; }
+  .card .badge { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.65); color:#fff; font-size:.68rem; font-weight:700; padding:3px 7px; border-radius:6px; }
+  .card .info { padding:10px; }
+  .card .info .t { font-size:.85rem; font-weight:700; color:var(--c-text-bright); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card .info .meta { font-size:.72rem; color:var(--c-text); margin-top:4px; opacity:.8; }
+  .empty { text-align:center; padding:50px 0; color:var(--c-text); opacity:.7; }
+  .spin { text-align:center; padding:60px 0; color:var(--c-text); }
+  .note { font-size:.8rem; opacity:.7; margin-bottom:14px; }
+  @media(max-width:560px){ .grid{ grid-template-columns:repeat(auto-fill,minmax(110px,1fr));} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="/">Anime<span>Verse</span></a>
+  <nav>
+    <a href="/home">Home</a>
+    <a href="/catalog">Catalog</a>
+    <a href="/schedule" class="active">Schedule</a>
+    <a href="/profile">My List</a>
+  </nav>
+</div>
+<div class="wrap">
+  <h1>Airing Schedule</h1>
+  <div class="note">What airs each day, so you never miss an episode.</div>
+  <div class="daytabs" id="tabs"></div>
+  <div id="grid" class="grid"><div class="spin">Loading...</div></div>
+</div>
+<script>
+const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const grid=document.getElementById('grid');
+const tabs=document.getElementById('tabs');
+let data=null;
+let activeDay=days[new Date().getDay()];
+
+function card(m){
+  const el=document.createElement('a');
+  el.className='card';
+  el.href='/watch.html?anilistId='+(m.id||m.anilistId);
+  const fmt=(m.format||'TV').replace('_',' ');
+  const img=m.coverImage?.extraLarge||m.coverImage?.large||m.image||'';
+  const title=m.title?.romaji||m.title?.english||m.title||'';
+  const air=m.nextAiringEpisode?.airingAt ? new Date(m.nextAiringEpisode.airingAt*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+  el.innerHTML=`<div class="poster" style="background-image:url('${img}')"><span class="badge">${fmt}</span></div>
+    <div class="info"><div class="t">${title}</div><div class="meta">${m.nextAiringEpisode?('Ep '+m.nextAiringEpisode.episode):(m.seasonYear||'')}${air?' &middot; '+air:''}</div></div>`;
+  return el;
+}
+function render(){
+  tabs.innerHTML='';
+  days.forEach(d=>{
+    const b=document.createElement('button');
+    b.textContent=d;
+    b.className=d===activeDay?'active':'';
+    b.onclick=()=>{ activeDay=d; render(); };
+    tabs.appendChild(b);
+  });
+  const list=(data&&data[activeDay])||[];
+  grid.innerHTML='';
+  if(!list.length){ grid.innerHTML='<div class="empty">No scheduled releases for '+activeDay+'.</div>'; return; }
+  list.forEach(m=>grid.appendChild(card(m)));
+}
+(async()=>{
+  try{
+    const r=await fetch('/api/schedule');
+    data=await r.json();
+    render();
+  }catch(e){
+    grid.innerHTML='<div class="empty">Failed to load schedule.</div>';
+  }
+})();
+</script>
+</body>
+</html>
