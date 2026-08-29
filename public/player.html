@@ -568,6 +568,13 @@
                     </svg>
                 </button>
 
+                <button id="pip-btn" class="ctrl-btn" title="Picture in Picture">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <rect x="11" y="9" width="9" height="7" rx="1" fill="currentColor" opacity="0.3"/>
+                    </svg>
+                </button>
+
                 <button id="settings-btn" class="ctrl-btn" title="Settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"/>
@@ -1046,6 +1053,44 @@
                         data-action="subtitle" data-val="${i}">${t.label || t.lang || 'Subtitle ' + (i + 1)}</button>
                 `).join('');
                 menuItems.innerHTML = html;
+            } else if (section === 'history') {
+                menuTitle.textContent = 'Playback History';
+                let historyHtml = '';
+                try {
+                    const hist = JSON.parse(localStorage.getItem('animekai:continue') || '{}');
+                    const entries = Object.values(hist).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 10);
+                    if (entries.length === 0) {
+                        historyHtml = '<div style="padding:16px;text-align:center;color:#8b93b5;font-size:13px;">No playback history yet</div>';
+                    } else {
+                        historyHtml = entries.map(e => `<button class="menu-item" data-action="history-play" data-url="/watch.html?anilistId=${e.anilistId || ''}" style="flex-direction:column;align-items:flex-start;gap:2px;">
+                            <span style="font-size:13px;color:#e8e8e8;">${(e.title || 'Unknown').substring(0, 40)}</span>
+                            <span class="menu-value">Ep ${e.ep || '?'} · ${e.ts ? new Date(e.ts).toLocaleDateString() : ''}</span>
+                        </button>`).join('');
+                    }
+                } catch (e) {
+                    historyHtml = '<div style="padding:16px;text-align:center;color:#8b93b5;font-size:13px;">No playback history</div>';
+                }
+                menuItems.innerHTML = historyHtml;
+            } else if (section === 'shortcuts') {
+                menuTitle.textContent = 'Keyboard Shortcuts';
+                const shortcuts = [
+                    ['Space / K', 'Play / Pause'],
+                    ['F', 'Fullscreen'],
+                    ['M', 'Mute'],
+                    ['C', 'Toggle Subtitles'],
+                    ['← / J', 'Rewind 10s'],
+                    ['→ / L', 'Forward 10s'],
+                    ['↑', 'Volume Up'],
+                    ['↓', 'Volume Down'],
+                    ['P', 'Picture-in-Picture'],
+                    ['Esc', 'Exit Fullscreen'],
+                ];
+                menuItems.innerHTML = shortcuts.map(([key, desc]) => `
+                    <div class="menu-item" style="cursor:default;pointer-events:none;">
+                        <span style="color:#e8e8e8;font-size:13px;">${desc}</span>
+                        <span class="menu-value" style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;font-family:monospace;">${key}</span>
+                    </div>
+                `).join('');
             } else if (section === 'substyle') {
                 menuTitle.textContent = 'Subtitle Style';
                 menuItems.innerHTML = `
@@ -1096,6 +1141,26 @@
                     <button class="menu-item" data-action="open-substyle">
                         <span>Subtitle Style</span>
                         <span class="menu-value">${subStyleSummary()}</span>
+                    </button>
+                    <button class="menu-item" data-action="toggle-loop">
+                        <span>Loop</span>
+                        <span class="menu-value">${video.loop ? 'On' : 'Off'}</span>
+                    </button>
+                    <button class="menu-item" data-action="toggle-miniplayer">
+                        <span>Miniplayer</span>
+                        <span class="menu-value">${document.pictureInPictureElement ? 'Active' : (document.pictureInPictureEnabled ? 'Off' : 'Unsupported')}</span>
+                    </button>
+                    <button class="menu-item" data-action="toggle-theater">
+                        <span>Theater Mode</span>
+                        <span class="menu-value">${document.fullscreenElement ? 'On' : 'Off'}</span>
+                    </button>
+                    <button class="menu-item" data-action="open-history">
+                        <span>Playback History</span>
+                        <span class="menu-value chevron">›</span>
+                    </button>
+                    <button class="menu-item" data-action="open-shortcuts">
+                        <span>Keyboard Shortcuts</span>
+                        <span class="menu-value chevron">›</span>
                     </button>
                 `;
             }
@@ -1149,6 +1214,19 @@
                 rememberQuality();
                 renderMenu('quality');
                 menuTimer = setTimeout(() => renderMenu('main'), 600);
+            } else if (action === 'toggle-loop') {
+                video.loop = !video.loop;
+                renderMenu('main');
+            } else if (action === 'toggle-miniplayer') {
+                toggleMiniplayer();
+                renderMenu('main');
+            } else if (action === 'toggle-theater') {
+                fullscreenBtn.click();
+                renderMenu('main');
+            } else if (action === 'open-history') {
+                renderMenu('history');
+            } else if (action === 'open-shortcuts') {
+                renderMenu('shortcuts');
             }
         });
         document.addEventListener('click', (e) => {
@@ -1351,6 +1429,38 @@
             }
         });
 
+        // --- Picture-in-Picture ---
+        const pipBtn = document.getElementById('pip-btn');
+        if (!document.pictureInPictureEnabled) pipBtn.style.display = 'none';
+        async function toggleMiniplayer() {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else if (document.pictureInPictureEnabled && video.src) {
+                    await video.requestPictureInPicture();
+                }
+            } catch (e) { console.warn('PiP failed:', e); }
+        }
+        pipBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMiniplayer();
+        });
+
+        // Playback history tracking
+        function trackHistory() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const url = window.location.href;
+                const title = document.getElementById('episode-title').textContent || '';
+                const poster = decodeURIComponent(params.get('poster') || '');
+                const store = JSON.parse(localStorage.getItem('animekai:continue') || '{}');
+                const key = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'unknown';
+                store[key] = { ...store[key], title, poster, ts: Date.now(), anilistId: params.get('anilistId') || '' };
+                localStorage.setItem('animekai:continue', JSON.stringify(store));
+            } catch (e) {}
+        }
+        video.addEventListener('play', trackHistory);
+
         // Fullscreen (switches to landscape orientation on mobile)
         window.addEventListener('message', (ev) => {
             const d = ev.data || {};
@@ -1412,6 +1522,9 @@
                 case 'm':
                     video.muted = !video.muted;
                     updateMuteIcon();
+                    break;
+                case 'p':
+                    toggleMiniplayer();
                     break;
                 case 'c':
                     ccBtn.click();

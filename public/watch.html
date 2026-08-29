@@ -1102,6 +1102,16 @@
                     <div id="megapList"></div>
                     <div id="apipList"></div>
                     <div id="animexList"></div>
+                    <div id="customEmbedList">
+                        <div class="server-section" style="margin-top:6px">
+                            <div class="server-type-label">CUSTOM EMBED</div>
+                            <div class="server-list">
+                                <div class="sv-btn embed" onclick="showCustomEmbedInput()">
+                                    <i class="fas fa-link" style="margin-right:4px;font-size:0.7rem"></i> Load URL
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2057,6 +2067,10 @@ function resumeSource() {
         selectApiplayerServer();
     } else if (ls.type === 'animex') {
         selectAnimexServer(ls.lang || 'sub', ls.providerId);
+    } else if (ls.type === 'custom' && ls.url) {
+        state.lastSource = ls;
+        currentEpType.textContent = 'CUSTOM EMBED';
+        playerFrame.src = buildPlayerUrl(ls.url);
     }
 }
 
@@ -2111,6 +2125,56 @@ async function selectAnimexServer(lang, providerId) {
         console.error('AnimeX stream failed:', e);
         loadingOverlay.style.display = 'none';
         showError('AnimeX stream failed: ' + e.message);
+    }
+}
+
+// ============ CUSTOM EMBED (load any external player URL) ============
+function showCustomEmbedInput() {
+    const existing = document.getElementById('customEmbedModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'customEmbedModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:#151f2e;border:1px solid rgba(159,173,189,.2);border-radius:12px;padding:20px;width:min(420px,90vw);box-shadow:0 16px 40px rgba(0,0,0,.6);">
+            <h3 style="color:#e8ecf4;font-size:15px;font-weight:700;margin-bottom:12px;">Load Custom Embed</h3>
+            <p style="color:#8b93b5;font-size:12px;margin-bottom:10px;">Paste any embed or video URL (mp4, m3u8, embed page, etc.)</p>
+            <input id="customEmbedUrl" type="text" placeholder="https://..." style="width:100%;padding:10px 12px;background:#0f1620;border:1px solid rgba(159,173,189,.2);border-radius:8px;color:#e8ecf4;font-size:13px;box-sizing:border-box;outline:none;" autofocus />
+            <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                <button onclick="this.closest('#customEmbedModal').remove()" style="padding:8px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#aaa;font-size:13px;cursor:pointer;">Cancel</button>
+                <button onclick="loadCustomEmbed()" style="padding:8px 16px;background:#e45f3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Load</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    const input = document.getElementById('customEmbedUrl');
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadCustomEmbed(); });
+    input.focus();
+}
+
+function loadCustomEmbed() {
+    const input = document.getElementById('customEmbedUrl');
+    const url = (input ? input.value.trim() : '');
+    const modal = document.getElementById('customEmbedModal');
+    if (modal) modal.remove();
+    if (!url) return;
+    state.lastSource = { type: 'custom', url };
+    document.querySelectorAll('.sv-btn').forEach(btn => btn.classList.remove('active'));
+    currentEpType.textContent = 'CUSTOM EMBED';
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.querySelector('span').textContent = 'Loading embed...';
+    try {
+        // If it's a direct video/hls URL, load it directly
+        if (/\.m3u8($|\?)/i.test(url) || /\.mp4($|\?)/i.test(url) || /\.webm($|\?)/i.test(url)) {
+            playerFrame.src = buildPlayerUrl(getVideoProxyUrl(url) + '&referer=' + encodeURIComponent(new URL(url).origin + '/'));
+        } else {
+            // It's an embed page — load it as an iframe src
+            playerFrame.src = buildPlayerUrl(getVideoProxyUrl(url));
+        }
+        loadingOverlay.style.display = 'none';
+    } catch (e) {
+        loadingOverlay.style.display = 'none';
+        showError('Custom embed failed: ' + e.message);
     }
 }
 
