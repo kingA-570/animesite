@@ -2397,10 +2397,16 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Missing anilistId and/or episode' }));
       }
-      const data = await animexScraper.animexServers(anilistId, episode);
-      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] sub=${data.sub.length} dub=${data.dub.length}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(data));
+      try {
+        const data = await animexScraper.animexServers(anilistId, episode);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] sub=${data.sub.length} dub=${data.dub.length}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(data));
+      } catch (err) {
+        log('ANIMEX_SERVERS_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, available: false, sub: [], dub: [] }));
+      }
     }
 
     // ========== ROUTE: /api/animex/episodes (AnimeX episode list) ==========
@@ -2410,10 +2416,16 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Missing anilistId parameter' }));
       }
-      const data = await animexScraper.animexEpisodes(anilistId);
-      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] eps=${data.episodes.length}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(data));
+      try {
+        const data = await animexScraper.animexEpisodes(anilistId);
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] eps=${data.episodes.length}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(data));
+      } catch (err) {
+        log('ANIMEX_EPISODES_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, available: false, episodes: [] }));
+      }
     }
 
     // ========== ROUTE: /api/animex/stream (AnimeX HLS source) ==========
@@ -2426,22 +2438,28 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Missing anilistId, episode and/or providerId' }));
       }
-      const data = await animexScraper.animexSources(anilistId, episode, type, provider);
-      // Build a server-relayed HLS URL so the browser can play it with the
-      // correct referer/proxy headers (mirrors how /proxy-video is used).
-      const src = (data.sources || []).find((s) => /\.m3u8($|\?)/i.test(s.url || ''));
-      const m3u8Url = (src && !data.error)
-        ? `/proxy-video?url=${encodeURIComponent(src.url)}&referer=${encodeURIComponent((data.headers && (data.headers.Referer || data.headers.Origin)) || '')}`
-        : null;
-      log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] m3u8=${m3u8Url ? 'yes' : 'no'}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        ...data,
-        providerId: provider,
-        type,
-        m3u8Url,
-        subtitles: (data.tracks || []).filter((t) => t.kind === 'captions' || t.kind === 'subtitles'),
-      }));
+      try {
+        const data = await animexScraper.animexSources(anilistId, episode, type, provider);
+        // Build a server-relayed HLS URL so the browser can play it with the
+        // correct referer/proxy headers (mirrors how /proxy-video is used).
+        const src = (data.sources || []).find((s) => /\.m3u8($|\?)/i.test(s.url || ''));
+        const m3u8Url = (src && !data.error)
+          ? `/proxy-video?url=${encodeURIComponent(src.url)}&referer=${encodeURIComponent((data.headers && (data.headers.Referer || data.headers.Origin)) || '')}`
+          : null;
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, `[ANIMEX] m3u8=${m3u8Url ? 'yes' : 'no'}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          ...data,
+          providerId: provider,
+          type,
+          m3u8Url,
+          subtitles: (data.tracks || []).filter((t) => t.kind === 'captions' || t.kind === 'subtitles'),
+        }));
+      } catch (err) {
+        log('ANIMEX_STREAM_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
     }
 
     // ========== ROUTE: /api/trailer (official/YouTube trailer for an anime) ==========

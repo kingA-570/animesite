@@ -1966,11 +1966,9 @@ async function selectMegapServer(lang, source = 'ani') {
             })),
         });
         loadingOverlay.style.display = 'none';
-        return true;
     } catch (e) {
         console.error('MegaPlay stream failed:', e);
         showError(e.message);
-        return false;
     }
 }
 
@@ -2498,9 +2496,6 @@ console.log('Watch page initialized. Slug:', state.slug);
         });
     }
 })();
-</script>
-<script>
-console.log('Watch page initialized. Slug:', state.slug);
 </script>
 </body>
 </html>
