@@ -11648,42 +11648,59 @@ footer .links .body ul li a:hover {
     display: none;
     position: absolute;
     top: 100%;
-    left: -10px;
-    right: -10px;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    padding: 10px 12px;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
   }
   header #search.show {
     display: block;
   }
   header #search form {
-    border-radius: 0;
-    padding: 15px 15px;
-    height: 66px;
+    border-radius: 14px;
+    padding: 0 8px 0 6px;
+    height: 48px;
+    max-width: 100%;
+    border: 1px solid var(--c-border);
+    background: var(--c-surface-3);
+  }
+  header #search form:focus-within {
+    border-color: var(--c-accent);
+    background: var(--c-surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
   }
   header #search form .tip {
     display: none;
   }
   header #search form input {
-    color: var(--c-surface);
-    background: #fff;
-    border-radius: 3px 0 0 3px;
+    color: var(--c-text);
+    background: transparent;
+    border-radius: 0;
+    font-size: 1rem;
   }
   header #search form button {
-    order: 1;
-    padding: 0 10px;
-    background: #fff;
+    order: -1;
+    padding: 0 8px;
+    background: transparent;
     border: none;
     outline: 0;
-    color: var(--c-surface);
-    border-radius: 0 3px 3px 0;
+    color: var(--c-text-3);
+    border-radius: 0;
   }
   header #search form button:hover {
-    color: var(--c-accent);
+    color: var(--c-text);
   }
   header #search .search-popup {
-    border-radius: 0;
-    padding-top: 51px;
+    border-radius: 14px;
+    padding-top: 0;
     display: block;
-    border: none;
+    border: 1px solid var(--c-border);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+    margin-top: 8px;
+    max-height: 55vh;
+    overflow-y: auto;
   }
   header #search .search-popup .s-close {
     display: none;
@@ -11692,14 +11709,18 @@ footer .links .body ul li a:hover {
     padding-top: 0;
   }
   header #search .search-popup .head .s-tabs .s-tab {
-    padding: 10px 0;
-    font-size: 1.2rem;
+    padding: 8px 0;
+    font-size: 1rem;
   }
   header #search .search-popup .head .filter {
-    font-size: 1.2rem;
+    font-size: 1rem;
+  }
+  header #search .search-popup .body {
+    padding: 4px;
   }
   header #search .search-popup .foot {
     text-align: center;
+    padding: 8px 12px;
   }
   header #search .search-popup .foot .nav-tip {
     display: none;
