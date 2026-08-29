@@ -237,30 +237,92 @@ body {
   padding: 0.4rem 0;
 }
 
-/* ============ Continue Watching — mobile scrollable polish ============ */
+/* ============ Continue Watching — mobile Miruro-style ============ */
 @media (max-width: 767.98px) {
   .continue-watching-home-section {
-    padding: 0.75rem 0.6rem;
-    border-radius: 12px;
+    margin: 0 0 1rem;
+    padding: 0.7rem 0.7rem 0.5rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+  .continue-watching-home-section .head {
+    padding: 0 0.3rem;
+    margin-bottom: 0.6rem;
+  }
+  .continue-watching-home-section .head .title {
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+  .continue-watching-home-section .head .t-nav {
+    display: none;
   }
   .continue-watching-home-list {
+    display: flex;
     gap: 10px;
-    padding: 4px 0 10px;
+    padding: 4px 0 14px;
+    margin: 0 -0.7rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
-    scroll-padding-left: 0.6rem;
-    mask-image: linear-gradient(to right, black 75%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 75%, transparent 100%);
+    scrollbar-width: none;
+    mask-image: none;
+    -webkit-mask-image: none;
   }
+  .continue-watching-home-list::-webkit-scrollbar { display: none; }
   .continue-watching-card {
-    flex: 0 0 110px;
+    flex: 0 0 120px;
+    scroll-snap-align: start;
   }
   .continue-watching-card .cw-poster {
     border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    aspect-ratio: 2 / 3;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .continue-watching-card:active .cw-poster {
+    transform: scale(0.97);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  }
+  .continue-watching-card .cw-ep-badge {
+    top: 5px;
+    left: 5px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 0.6rem;
+  }
+  .continue-watching-card .cw-remove {
+    width: 22px;
+    height: 22px;
+    opacity: 1;
+    visibility: visible;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  .continue-watching-card .cw-remove svg {
+    width: 12px;
+    height: 12px;
+  }
+  .continue-watching-card .cw-progress {
+    height: 2.5px;
   }
   .continue-watching-card .cw-title {
-    font-size: 0.75rem;
-    min-height: 2em;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    min-height: 1.9em;
+    -webkit-line-clamp: 2;
+  }
+  .continue-watching-card .cw-meta {
+    font-size: 0.68rem;
+    margin-top: 1px;
+  }
+}
+@media (max-width: 400px) {
+  .continue-watching-card {
+    flex: 0 0 105px;
   }
 }
 
