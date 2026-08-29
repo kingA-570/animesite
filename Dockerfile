@@ -34,7 +34,10 @@ COPY public/ ./public/
 
 ENV PORT=3000 \
     PYTHON=python3 \
-    NODE_ENV=production
+    NODE_ENV=production \
+    # Keep the V8 heap bounded so the server shares the 512MB free-tier RAM
+    # with the Python/Chromium sidecar instead of trying to grab it all.
+    NODE_OPTIONS="--max-old-space-size=192 --max-semi-space-size=16"
 # Uncomment to require a token before anyone can use the site:
 # ENV ACCESS_TOKEN=change-me-to-a-strong-random-string
 

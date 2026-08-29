@@ -13,6 +13,8 @@ services:
         value: production
       - key: PYTHON
         value: python3
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=192 --max-semi-space-size=16"
       # Uncomment to require a token before anyone can use the site:
       # - key: ACCESS_TOKEN
       #   generateValue: true

@@ -165,7 +165,14 @@ function isAllowedProxyTarget(target) {
   }
 }
 
-function shouldCompress(res, req) {
+// MIME types that are already compressed and gain nothing (and waste CPU/RAM)
+// from a second gzip pass: lossy/lossless image containers, video, icons.
+const NO_COMPRESS_EXTS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp4', '.webm', '.ico', '.mp3',
+]);
+
+function shouldCompress(res, req, ext) {
+  if (ext && NO_COMPRESS_EXTS.has(ext)) return false;
   const accept = req.headers['accept-encoding'] || '';
   return (
     accept.includes('gzip') &&
@@ -1031,7 +1038,7 @@ async function serveStatic(reqUrl, res, req) {
     }
 
     // Add compression if supported
-    if (shouldCompress(res, req)) {
+    if (shouldCompress(res, req, ext)) {
       const compressed = zlib.gzipSync(data);
       headers['Content-Encoding'] = 'gzip';
       headers['Content-Length'] = compressed.length;
