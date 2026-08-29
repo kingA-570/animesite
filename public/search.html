@@ -164,30 +164,42 @@
 
         /* ============ Mobile search overrides ============ */
         @media (max-width: 1199.98px) {
+            header .start { position: static; }
             #search-toggler { display: block; }
             #search {
                 display: none !important;
                 position: absolute;
                 top: 100%; left: 0; right: 0;
+                width: 100%;
                 z-index: 80;
-                padding: 10px;
+                padding: 10px 12px;
                 background: var(--c-surface);
                 border-bottom: 1px solid var(--c-border);
             }
             #search.show { display: block !important; }
             #search form {
-                border-radius: 12px;
+                border-radius: 14px;
                 height: 48px;
+                width: 100%;
                 max-width: 100%;
                 border: 1px solid var(--c-border);
+                background: var(--c-surface-3);
             }
-            #search form input { font-size: 1rem; }
+            #search form:focus-within {
+                border-color: var(--c-accent);
+                background: var(--c-surface);
+                box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
+            }
+            #search form input { font-size: 1rem; color: var(--c-text); background: transparent; }
+            #search form button { color: var(--c-text-3); background: transparent; }
             #search .search-popup {
-                border-radius: 12px;
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+                position: relative;
+                border-radius: 14px;
+                box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
                 margin-top: 8px;
-                max-height: 50vh;
+                max-height: 55vh;
                 overflow-y: auto;
+                border: 1px solid var(--c-border);
             }
             #search .search-popup .s-close { display: none; }
             #search .search-popup .body { padding: 4px; }
@@ -195,9 +207,9 @@
             #search .search-popup .foot .hint { display: none; }
         }
         @media (max-width: 575.98px) {
-            #search form { height: 44px; border-radius: 10px; }
+            #search form { height: 44px; border-radius: 12px; }
             #search form input { font-size: 0.95rem; }
-            #search .search-popup { border-radius: 10px; }
+            #search .search-popup { border-radius: 12px; }
         }
 
         /* ============ Results page ============ */

@@ -11703,6 +11703,7 @@ footer .links .body ul li a:hover {
   header #menu > ul > li.active ul {
     padding: 10px;
   }
+  header .start { position: static; }
   header #search-toggler {
     display: block;
   }
@@ -11712,6 +11713,7 @@ footer .links .body ul li a:hover {
     top: 100%;
     left: 0;
     right: 0;
+    width: 100%;
     z-index: 80;
     padding: 10px 12px;
     background: var(--c-surface);
@@ -11724,6 +11726,7 @@ footer .links .body ul li a:hover {
     border-radius: 14px;
     padding: 0 8px 0 6px;
     height: 48px;
+    width: 100%;
     max-width: 100%;
     border: 1px solid var(--c-border);
     background: var(--c-surface-3);
