@@ -59,6 +59,9 @@ nav,
 section {
   display: block;
 }
+html {
+  overflow-x: hidden;
+}
 body {
   margin: 0;
   font-family: Nunito, Archivo, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -70,6 +73,8 @@ body {
   color: var(--c-text);
   text-align: left;
   background-color: var(--c-bg);
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .continue-watching-home-section {
@@ -102,7 +107,7 @@ body {
 
 /* Miruro-style poster card */
 .continue-watching-card {
-  flex: 0 0 140px;
+  flex: 0 0 130px;
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
@@ -272,7 +277,7 @@ body {
   }
   .continue-watching-home-list::-webkit-scrollbar { display: none; }
   .continue-watching-card {
-    flex: 0 0 90px;
+    flex: 0 0 75px;
     scroll-snap-align: start;
   }
   .continue-watching-card .cw-poster {
@@ -9187,6 +9192,8 @@ svg {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 #wrapper #body {
   flex-grow: 1;
@@ -11721,7 +11728,7 @@ footer .links .body ul li a:hover {
     height: 48px;
     width: 100%;
     max-width: 100%;
-    border: 1px solid var(--c-border);
+    border: none;
     background: var(--c-surface-3);
   }
   header #search form:focus-within {
