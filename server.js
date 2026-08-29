@@ -562,6 +562,22 @@ async function anilistMediaInfo(id) {
       studios { nodes { name isAnimationStudio } }
       nextAiringEpisode { episode airingAt timeUntilAiring }
       externalLinks { site url type }
+      characters(sort: ROLE, perPage: 12) {
+        edges { role node { id name image { large } } }
+      }
+      relations {
+        edges {
+          relationType
+          node { id title { romaji english native } coverImage { large medium } format status seasonYear averageScore }
+        }
+      }
+      recommendations(sort: RATING_DESC, perPage: 12) {
+        nodes {
+          mediaRecommendation {
+            id title { romaji english native } coverImage { large medium } format status seasonYear averageScore
+          }
+        }
+      }
     }
   }`;
   const response = await fetch(ANILIST_GRAPHQL, {
@@ -2209,6 +2225,51 @@ const server = http.createServer(async (req, res) => {
         log('ANILIST_INFO_ERR', reqUrl.search, 502, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
+    // ========== ROUTE: /api/anime/extras (relations + recommendations for an anime) ==========
+    if (reqUrl.pathname === '/api/anime/extras') {
+      const anilistId = reqUrl.searchParams.get('anilistId');
+      if (!anilistId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Missing anilistId parameter' }));
+      }
+      try {
+        const info = await anilistMediaInfo(anilistId);
+        if (!info) throw new Error('AniList info unavailable');
+        const toCard = (m) => (m ? {
+          anilistId: m.id,
+          title: m.title?.english || m.title?.romaji || m.title?.native || '',
+          romaji: m.title?.romaji || '',
+          image: m.coverImage?.large || m.coverImage?.medium || '',
+          format: m.format || '',
+          status: m.status || '',
+          year: m.seasonYear || null,
+          score: m.averageScore || null,
+        } : null);
+        const relations = (info.relations?.edges || [])
+          .filter((e) => e && e.node)
+          .map((e) => ({ relationType: e.relationType || 'RELATED', ...toCard(e.node) }))
+          .filter((r) => r.anilistId);
+        const recommendations = (info.recommendations?.nodes || [])
+          .map((n) => toCard(n && n.mediaRecommendation))
+          .filter((r) => r && r.anilistId);
+        const characters = (info.characters?.edges || [])
+          .filter((e) => e && e.node && e.node.image && e.node.image.large)
+          .map((e) => ({
+            id: e.node.id,
+            name: e.node.name?.full || e.node.name || '',
+            role: e.role || '',
+            image: e.node.image.large,
+          }));
+        log(req.method, reqUrl.pathname + reqUrl.search, 200, '[EXTRAS]');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ anilistId, relations, recommendations, characters }));
+      } catch (err) {
+        log('EXTRAS_ERR', reqUrl.search, 502, err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message, relations: [], recommendations: [], characters: [] }));
       }
     }
 

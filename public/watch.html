@@ -24,15 +24,8 @@
         .watch-header .slug-info { color: #7a82a0; font-size: 0.82rem; margin-top: 2px; }
 
         /* ============ Miruro-style layout: player + servers main, poster + episodes sidebar ============ */
-        .watch-wrapper { display: flex; flex-direction: row; align-items: stretch; gap: 20px; margin-bottom: 8px; }
-        .watch-wrapper[data-theater-mode="true"] { flex-direction: column; }
+        .watch-wrapper { display: flex; flex-direction: column; align-items: stretch; gap: 20px; margin-bottom: 8px; }
         .player-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-        .ep-sidebar { flex: 0 0 340px; width: 340px; display: flex; flex-direction: column; gap: 16px; }
-        @media (max-width: 1100px) {
-            .watch-wrapper { flex-direction: column; }
-            .watch-wrapper[data-theater-mode="true"] { flex-direction: column; }
-            .ep-sidebar { flex-basis: auto; width: 100%; }
-        }
         @media (max-width: 1100px) {
             .watch-wrapper[data-theater-mode="true"] .ep-sidebar { flex-direction: column; }
         }
@@ -505,6 +498,64 @@
             border-radius: 6px;
             vertical-align: 1px;
         }
+
+        /* ============ AnimeX-style body layout ============ */
+        .watch-head {
+            display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+            padding: 14px 4px 16px; flex-wrap: wrap;
+        }
+        .watch-head-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .watch-head-title .wh-num {
+            font-size: 0.78rem; font-weight: 800; letter-spacing: 1.5px;
+            color: var(--c-accent, #e45f3a); text-transform: uppercase;
+        }
+        .watch-head-title h2 {
+            font-size: 1.35rem; font-weight: 800; color: #eef1f8;
+            margin: 0; line-height: 1.25;
+        }
+        .watch-head-links { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .external-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
+            background: var(--c-surface-2, #1a1f35); color: #c8d0e0;
+            border: 1px solid var(--c-border, rgba(159,173,189,.15)); text-decoration: none;
+            transition: all .15s;
+        }
+        .external-link:hover { color: #fff; border-color: rgba(255,255,255,.3); background: var(--c-surface-3, #242c4a); }
+        .external-link i { color: #b5a8ff; }
+
+        .watch-body {
+            display: flex; flex-direction: row; align-items: flex-start; gap: 20px;
+            width: 100%; margin-top: 4px;
+        }
+        .watch-body .main-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+        .watch-body .ep-sidebar { flex: 0 0 340px; width: 340px; }
+        @media (max-width: 1100px) {
+            .watch-body { flex-direction: column; }
+            .watch-body .ep-sidebar { flex-basis: auto; width: 100%; }
+        }
+
+        /* Related / Recommendations cards */
+        .extras-panel h2 { font-size: 1rem; font-weight: 700; color: #e8ecf4; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .extras-panel h2 i { color: #b5a8ff; font-size: 0.85rem; }
+        .extras-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px;
+        }
+        .extras-card {
+            display: flex; flex-direction: column; gap: 8px; text-decoration: none;
+            background: var(--c-surface-2, #151f2e); border: 1px solid var(--c-border, rgba(159,173,189,.1));
+            border-radius: 10px; overflow: hidden; transition: transform .15s, border-color .15s, box-shadow .15s;
+        }
+        .extras-card:hover { transform: translateY(-2px); border-color: rgba(181,168,255,.45); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+        .extras-card .thumb { position: relative; aspect-ratio: 2/3; background: #1a1f35 center/cover no-repeat; }
+        .extras-card .thumb .rel-tag {
+            position: absolute; top: 6px; left: 6px; padding: 2px 8px; border-radius: 6px;
+            background: rgba(0,0,0,.65); color: #cfc9ff; font-size: 0.62rem; font-weight: 800; letter-spacing: .4px;
+        }
+        .extras-card .ec-title {
+            padding: 0 10px 10px; color: #c8d0e0; font-size: 0.8rem; font-weight: 600; line-height: 1.3;
+        }
+        .extras-card:hover .ec-title { color: #fff; }
 
         /* ============ RESPONSIVE (placed last so they override the base rules) ============ */
         @media (max-width: 768px) {
@@ -1033,9 +1084,22 @@
                 <button class="ctrl forward next" id="nextEpBtn" title="Next Episode" onclick="changeEpisode(1)"><i class="fas fa-chevron-right"></i></button>
             </div>
 
+            <!-- ============ AnimeX-style "You are watching" header ============ -->
+            <div class="watch-head">
+                <div class="watch-head-title">
+                    <span class="wh-num" id="whEpNum">EP —</span>
+                    <h2 id="whTitle">Loading anime...</h2>
+                </div>
+                <div class="watch-head-links">
+                    <a class="external-link" id="anilistLink" href="#" target="_blank" rel="noopener" title="AniList"><i class="fas fa-globe"></i> AniList</a>
+                    <a class="external-link" id="malLink" href="#" target="_blank" rel="noopener" title="MyAnimeList"><i class="fas fa-link"></i> MyAnimeList</a>
+                </div>
+            </div>
+
+            <!-- ============ AnimeX-style "Switch Player" dropdown ============ -->
             <div class="panel server-panel" id="serverPanel">
                 <div class="panel-head">
-                    <h2><i class="fas fa-server"></i> Source &amp; Data</h2>
+                    <h2><i class="fas fa-server"></i> Switch Player</h2>
                     <span class="ep-count" id="svCount">—</span>
                 </div>
                 <div class="server-body">
@@ -1044,68 +1108,84 @@
                     <div id="animexList"></div>
                 </div>
             </div>
-
-            <div class="panel synopsis-panel">
-                <h2><i class="fas fa-align-left"></i> Synopsis</h2>
-                <div class="w-synopsis" id="infoSynopsis">Loading synopsis...</div>
-            </div>
         </div>
 
-        <aside class="ep-sidebar">
-            <div class="info-sidebar" id="infoSidebar">
-                <div class="poster-wrap"><img id="posterImg" src="" alt=""></div>
-                <div class="info-body">
-                    <div class="w-title" id="infoTitle">—</div>
-                    <div class="w-score" id="infoScore"></div>
-                    <div class="w-airing" id="infoAiring" style="display:none"></div>
-                    <div class="w-meta" id="infoMeta"></div>
-                    <div class="w-genres" id="infoGenres"></div>
-                    <div class="w-meta" id="infoMeta2" style="display:none"></div>
-                    <div class="trailer-row" style="display:none;margin-top:10px">
-                        <button class="trailer-btn" id="trailerBtn" type="button" onclick="openTrailer()"><i class="fas fa-play"></i> Watch Trailer</button>
+        <div class="watch-body">
+            <div class="main-col">
+                <div class="panel ep-panel" id="episodePanel">
+                    <div class="ep-panel-head">
+                        <h2><i class="fas fa-list"></i> Episodes</h2>
+                        <span class="ep-count" id="epCount">—</span>
                     </div>
-                    <div class="list-ctl" id="listCtl">
-                        <button class="list-btn" id="listBtn" type="button">
-                            <i class="fas fa-plus"></i> <span>Add to My List</span>
-                        </button>
-                        <div class="list-menu" id="listMenu">
-                            <div class="list-menu-item" data-status="watching"><i class="fas fa-play-circle"></i> Watching</div>
-                            <div class="list-menu-item" data-status="planning"><i class="fas fa-clock"></i> Planning</div>
-                            <div class="list-menu-item" data-status="completed"><i class="fas fa-check-circle"></i> Completed</div>
-                            <div class="list-menu-item" data-status="on_hold"><i class="fas fa-pause-circle"></i> On Hold</div>
-                            <div class="list-menu-item" data-status="dropped"><i class="fas fa-times-circle"></i> Dropped</div>
-                            <div class="list-menu-item remove" data-status=""><i class="fas fa-trash-alt"></i> Remove from list</div>
+                    <div class="ep-next-banner" id="nextEpBanner" style="display:none">
+                        <i class="fas fa-broadcast-tower"></i>
+                        <span id="nextEpBannerText"></span>
+                    </div>
+                    <div class="ep-meta" id="epMeta"></div>
+                    <div class="ep-toolbar">
+                        <select class="ep-range-select" id="epRangeSelect" title="Jump to episode range"></select>
+                        <div class="ep-filter">
+                            <i class="fas fa-search"></i>
+                            <input id="epFilterInput" type="text" placeholder="Filter episodes..." autocomplete="off">
+                        </div>
+                        <button class="ep-tool-btn" id="epSpoilerBtn" title="Toggle Spoilers"><i class="fas fa-eye-slash"></i></button>
+                        <button class="ep-tool-btn" id="epLayoutBtn" title="Toggle layout"><i class="fas fa-th-large"></i></button>
+                    </div>
+                    <div class="episode-grid" id="episodeGrid">
+                        <div class="loading-text" style="grid-column:1/-1;padding:20px 0;text-align:center;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading episodes...
                         </div>
                     </div>
                 </div>
+
+                <div class="panel synopsis-panel">
+                    <h2><i class="fas fa-align-left"></i> Synopsis</h2>
+                    <div class="w-synopsis" id="infoSynopsis">Loading synopsis...</div>
+                </div>
+
+                <!-- ============ Related Anime (animex-style) ============ -->
+                <div class="panel extras-panel" id="relatedPanel" style="display:none">
+                    <h2><i class="fas fa-share-alt"></i> Related Anime</h2>
+                    <div class="extras-grid" id="relatedGrid"></div>
+                </div>
+
+                <!-- ============ Recommendations (animex-style) ============ -->
+                <div class="panel extras-panel" id="recPanel" style="display:none">
+                    <h2><i class="fas fa-thumbs-up"></i> Recommendations</h2>
+                    <div class="extras-grid" id="recGrid"></div>
+                </div>
             </div>
 
-            <div class="panel ep-panel" id="episodePanel">
-                <div class="ep-panel-head">
-                    <h2><i class="fas fa-list"></i> Episodes</h2>
-                    <span class="ep-count" id="epCount">—</span>
-                </div>
-                <div class="ep-next-banner" id="nextEpBanner" style="display:none">
-                    <i class="fas fa-broadcast-tower"></i>
-                    <span id="nextEpBannerText"></span>
-                </div>
-                <div class="ep-meta" id="epMeta"></div>
-                <div class="ep-toolbar">
-                    <select class="ep-range-select" id="epRangeSelect" title="Jump to episode range"></select>
-                    <div class="ep-filter">
-                        <i class="fas fa-search"></i>
-                        <input id="epFilterInput" type="text" placeholder="Filter episodes..." autocomplete="off">
+            <aside class="ep-sidebar">
+                <div class="info-sidebar" id="infoSidebar">
+                    <div class="poster-wrap"><img id="posterImg" src="" alt=""></div>
+                    <div class="info-body">
+                        <div class="w-title" id="infoTitle">—</div>
+                        <div class="w-score" id="infoScore"></div>
+                        <div class="w-airing" id="infoAiring" style="display:none"></div>
+                        <div class="w-meta" id="infoMeta"></div>
+                        <div class="w-genres" id="infoGenres"></div>
+                        <div class="w-meta" id="infoMeta2" style="display:none"></div>
+                        <div class="trailer-row" style="display:none;margin-top:10px">
+                            <button class="trailer-btn" id="trailerBtn" type="button" onclick="openTrailer()"><i class="fas fa-play"></i> Watch Trailer</button>
+                        </div>
+                        <div class="list-ctl" id="listCtl">
+                            <button class="list-btn" id="listBtn" type="button">
+                                <i class="fas fa-plus"></i> <span>Add to My List</span>
+                            </button>
+                            <div class="list-menu" id="listMenu">
+                                <div class="list-menu-item" data-status="watching"><i class="fas fa-play-circle"></i> Watching</div>
+                                <div class="list-menu-item" data-status="planning"><i class="fas fa-clock"></i> Planning</div>
+                                <div class="list-menu-item" data-status="completed"><i class="fas fa-check-circle"></i> Completed</div>
+                                <div class="list-menu-item" data-status="on_hold"><i class="fas fa-pause-circle"></i> On Hold</div>
+                                <div class="list-menu-item" data-status="dropped"><i class="fas fa-times-circle"></i> Dropped</div>
+                                <div class="list-menu-item remove" data-status=""><i class="fas fa-trash-alt"></i> Remove from list</div>
+                            </div>
+                        </div>
                     </div>
-                    <button class="ep-tool-btn" id="epSpoilerBtn" title="Toggle Spoilers"><i class="fas fa-eye-slash"></i></button>
-                    <button class="ep-tool-btn" id="epLayoutBtn" title="Toggle layout"><i class="fas fa-th-large"></i></button>
                 </div>
-                <div class="episode-grid" id="episodeGrid">
-                    <div class="loading-text" style="grid-column:1/-1;padding:20px 0;text-align:center;">
-                        <i class="fas fa-spinner fa-spin"></i> Loading episodes...
-                    </div>
-                </div>
-            </div>
-        </aside>
+            </aside>
+        </div>
     </div>
 </div>
 
@@ -1293,6 +1373,14 @@ const watchWrapper = document.getElementById('watchWrapper');
 const listBtn = document.getElementById('listBtn');
 const listMenu = document.getElementById('listMenu');
 const listCtl = document.getElementById('listCtl');
+const whEpNum = document.getElementById('whEpNum');
+const whTitle = document.getElementById('whTitle');
+const anilistLink = document.getElementById('anilistLink');
+const malLink = document.getElementById('malLink');
+const relatedPanel = document.getElementById('relatedPanel');
+const relatedGrid = document.getElementById('relatedGrid');
+const recPanel = document.getElementById('recPanel');
+const recGrid = document.getElementById('recGrid');
 
 // ============ EPISODE VIEW / FILTER / SPOILER ============
 const EP_VIEW_ORDER = ['grid', 'list', 'image'];
@@ -1506,6 +1594,12 @@ function applyInfo(resolved) {
     if (info.status) parts.push(info.status);
     infoMeta.innerHTML = parts.map(p => `<span class="badge">${p}</span>`).join('');
     infoGenres.innerHTML = (info.genres || []).slice(0, 5).map(g => `<span class="genre">${g}</span>`).join('');
+
+    // AnimeX-style header title + external links
+    if (whTitle) whTitle.textContent = info.title?.english || info.title?.romaji || resolved.title || state.title || '';
+    if (anilistLink && state.anilistId) anilistLink.href = 'https://anilist.co/anime/' + state.anilistId;
+    if (malLink && info.idMal) malLink.href = 'https://myanimelist.net/anime/' + info.idMal;
+    loadExtras();
 
     const next = info.nextAiringEpisode;
     if (next && next.episode && next.airingAt) {
@@ -1724,6 +1818,7 @@ async function selectEpisode(numStr, opts = {}) {
     epMeta.innerHTML = `<span><i class="fas fa-film"></i> Episode ${ep.num}</span>`;
     currentEpName.textContent = `Episode ${ep.num}`;
     currentEpType.textContent = '';
+    if (whEpNum) whEpNum.textContent = `EP ${ep.num}`;
     updateEpNav();
     saveContinue();
     renderEpisodes(state.episodes);
@@ -2035,6 +2130,38 @@ function openTrailer() {
     </div>`;
     document.body.appendChild(dim);
     dim.querySelector('button').onclick = () => document.body.removeChild(dim);
+}
+
+// ============ RELATED + RECOMMENDATIONS (animex-style extras) ============
+let extrasLoaded = false;
+async function loadExtras() {
+    if (extrasLoaded || !state.anilistId) return;
+    extrasLoaded = true;
+    try {
+        const resp = await fetch(`/api/anime/extras?anilistId=${state.anilistId}`);
+        const data = await resp.json();
+        if (data.relations && data.relations.length) {
+            renderExtrasGrid(relatedGrid, data.relations, (it) => it.relationType || 'Related');
+            if (relatedPanel) relatedPanel.style.display = '';
+        }
+        if (data.recommendations && data.recommendations.length) {
+            renderExtrasGrid(recGrid, data.recommendations, null);
+            if (recPanel) recPanel.style.display = '';
+        }
+    } catch (e) {
+        // non-fatal
+    }
+}
+function renderExtrasGrid(grid, items, tagFn) {
+    if (!grid) return;
+    grid.innerHTML = items.map(it => `
+        <a class="extras-card" href="/watch.html?anilistId=${it.anilistId}">
+            <div class="thumb" style="background-image:url('${escapeHtml(it.image || '')}')">
+                ${tagFn && tagFn(it) ? `<span class="rel-tag">${escapeHtml(tagFn(it))}</span>` : ''}
+            </div>
+            <div class="ec-title">${escapeHtml(it.title || '')}</div>
+        </a>
+    `).join('');
 }
 
 // ============ ACCOUNT SYNC (watchlist + history) ============
