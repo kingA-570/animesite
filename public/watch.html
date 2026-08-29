@@ -1099,7 +1099,6 @@
                     <span class="ep-count" id="svCount">—</span>
                 </div>
                 <div class="server-body">
-                    <div id="miruroList"></div>
                     <div id="megapList"></div>
                     <div id="apipList"></div>
                     <div id="animexList"></div>
@@ -1229,8 +1228,6 @@ const state = {
     anilistId: null,
     currentMegap: null,
     currentMegapSource: 'ani',
-    miruroServers: [],
-    currentMiruro: null,
     aniskip: null,
     lastSource: null,       // { type: 'megap'|'apiplayer', ... } for auto-next resume
     airedCount: null,
@@ -1822,7 +1819,7 @@ async function selectEpisode(numStr, opts = {}) {
     saveContinue();
     renderEpisodes(state.episodes);
 
-    ['megapList', 'apipList', 'miruroList'].forEach(id => {
+    ['megapList', 'apipList'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '';
     });
@@ -1831,10 +1828,8 @@ async function selectEpisode(numStr, opts = {}) {
     loadAniskip(ep.num).catch(() => {});
 
     // Render every working source list first, then start the best default.
-    // MIRURO providers (working HLS) get priority; MEGA PLAY (sub, AniList
-    // mapping) is a fallback; MEGA CLUB (MAL mapping) is manual. APIPLAYER and
-    // ANIMEX are last-resort extras.
-    renderMiruroOptions();
+    // MEGA PLAY (sub, AniList mapping) is the default; MEGA CLUB (MAL mapping)
+    // is the manual second megaplay-family option. APIPLAYER (TMDB) is last.
     renderMegapOptions();
     renderApiplayerOptions();
     renderAnimexOptions();
@@ -1843,30 +1838,8 @@ async function selectEpisode(numStr, opts = {}) {
     if (opts.resume) {
         resumeSource();
     } else if (!state.currentMegap) {
-        await playDefaultSource();
+        await selectMegapServer('sub', 'ani');
     }
-}
-
-// Default playback: walk the available sources until one plays.
-async function playDefaultSource() {
-    if (!state.miruroServers || !state.miruroServers.length) {
-        try { await loadAniskip(state.currentEp); } catch (e) {}
-    }
-    const subs = (state.miruroServers || []).filter(s => s.category === 'sub');
-    const order = [
-        ...subs.map(s => () => selectMiruroServer(s.provider, 'sub')),
-        () => selectMegapServer('sub', 'ani'),
-    ];
-    for (const fn of order) {
-        if (typeof fn !== 'function') continue;
-        try {
-            if (await fn()) return;
-        } catch (e) { /* try the next source */ }
-    }
-    if (state.tmdbId) {
-        try { if (await selectApiplayerServer()) return; } catch (e) {}
-    }
-    showError('No stream source could be loaded for this episode. Try another server below.');
 }
 
 async function loadAniskip(epNum) {
@@ -1876,11 +1849,6 @@ async function loadAniskip(epNum) {
     }
     const resp = await fetch(`/api/miruro/servers?anilistId=${state.anilistId}&episode=${encodeURIComponent(epNum)}`);
     const data = await resp.json();
-    // The miruro providers give ready-to-play HLS for most episodes — stash
-    // them here so the server list + default playback can use them without a
-    // second fetch.
-    if (Array.isArray(data.servers)) state.miruroServers = data.servers;
-    renderMiruroOptions();
     // The miruro mappings are the most reliable source for a TMDB id (used by
     // the apiplayer source); AniList externalLinks rarely include it.
     if (data.mappings && data.mappings.themoviedbId) {
@@ -2068,95 +2036,12 @@ async function selectApiplayerServer() {
     }
 }
 
-// ============ MIRURO PROVIDERS ============
-// Miruro's own provider set (moo/bee/kiwi/hop/pewe/ally …) returns
-// ready-to-play HLS for nearly every episode — more reliable than MegaPlay,
-// which currently serves decoy (image) segments. This list is populated from
-// the /api/miruro/servers response already fetched by loadAniskip(), so
-// rendering costs no extra request.
-function renderMiruroOptions() {
-    const list = document.getElementById('miruroList');
-    if (!list) return;
-    if (!state.miruroServers || !state.miruroServers.length) {
-        list.innerHTML = '';
-        return;
-    }
-    const byType = {};
-    for (const s of state.miruroServers) {
-        (byType[s.category] = byType[s.category] || []).push(s);
-    }
-    const mk = (arr, label) => (arr && arr.length) ? `
-        <div class="server-section">
-            <div class="server-type-label">${label}</div>
-            <div class="server-list">
-                ${arr.map(s => {
-                    const active = state.currentMiruro
-                        && state.currentMiruro.provider === s.provider
-                        && state.currentMiruro.category === s.category;
-                    return `<div class="sv-btn ${s.category === 'dub' ? 'dub' : 'sub'} ${active ? 'active' : ''}"
-                             data-miruro="${s.provider}:${s.category}"
-                             onclick="selectMiruroServer('${s.provider}','${s.category}')">${s.provider}</div>`;
-                }).join('')}
-            </div>
-        </div>` : '';
-    list.innerHTML = `
-        <div class="server-section">
-            <div class="server-type-label">MIRURO PROVIDERS</div>
-            ${mk(byType.sub, 'SUB')}${mk(byType.dub, 'DUB')}
-        </div>`;
-    updateSvCount();
-}
-
-async function selectMiruroServer(provider, category = 'sub') {
-    if (!state.anilistId || !state.currentEp) return false;
-    state.currentMiruro = { provider, category };
-    state.lastSource = { type: 'miruro', provider, category };
-    document.querySelectorAll('[data-miruro]').forEach(btn =>
-        btn.classList.toggle('active', btn.dataset.miruro === provider + ':' + category));
-    document.querySelectorAll('#megapList .sv-btn, #apipList .sv-btn, #animexList .sv-btn')
-        .forEach(btn => btn.classList.remove('active'));
-
-    currentEpType.textContent = 'MIRURO · ' + category.toUpperCase() + ' · ' + provider;
-
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.querySelector('span').textContent = 'Loading ' + provider + ' stream...';
-
-    try {
-        await resolveAnilist();
-        const resp = await fetch(`/api/miruro/stream?anilistId=${state.anilistId}&provider=${encodeURIComponent(provider)}&category=${category}&episode=${encodeURIComponent(state.currentEp)}`);
-        const data = await resp.json();
-        if (!data.m3u8Url) throw new Error(data.error || 'Miruro returned no stream');
-
-        const subtitles = (data.subtitles || []).filter(t => t.file).map(t => ({
-            label: t.label || t.lang || 'Subtitles',
-            lang: t.lang || 'en',
-            file: getVideoProxyUrl(t.file),
-            default: !!t.default,
-        }));
-
-        playerFrame.src = buildPlayerUrl(data.m3u8Url, {
-            title: pageTitle.textContent + ' — ' + provider,
-            skipIntro: data.intro && data.intro.end > data.intro.start ? { start: data.intro.start, end: data.intro.end } : null,
-            skipOutro: data.outro && data.outro.end > data.outro.start ? { start: data.outro.start, end: data.outro.end } : null,
-            subs: subtitles.length ? subtitles : undefined,
-        });
-        loadingOverlay.style.display = 'none';
-        return true;
-    } catch (e) {
-        console.error('Miruro stream failed:', e);
-        showError(e.message);
-        return false;
-    }
-}
-
 // ============ AUTO-NEXT ============
 function resumeSource() {
     const ls = state.lastSource;
     if (!ls) return;
     if (ls.type === 'megap') {
         selectMegapServer(ls.lang || 'sub', ls.source || 'ani');
-    } else if (ls.type === 'miruro') {
-        selectMiruroServer(ls.provider, ls.category || 'sub');
     } else if (ls.type === 'apiplayer') {
         selectApiplayerServer();
     } else if (ls.type === 'animex') {
@@ -2357,7 +2242,9 @@ function expandPlayer() {
 
 // ============ HELPERS ============
 function retryLastServer() {
-    playDefaultSource();
+    if (state.currentMegap) return selectMegapServer(state.currentMegap, state.currentMegapSource || 'ani');
+    if (state.currentEp) return selectMegapServer('sub', 'ani');
+    return selectApiplayerServer();
 }
 
 function showError(msg) {
