@@ -70,7 +70,6 @@ body {
   color: var(--c-text);
   text-align: left;
   background-color: var(--c-bg);
-  overflow-x: hidden;
 }
 
 .continue-watching-home-section {
@@ -241,18 +240,18 @@ body {
 /* ============ Continue Watching — mobile Miruro-style ============ */
 @media (max-width: 767.98px) {
   .continue-watching-home-section {
-    margin: 0 -10px 1rem;
-    padding: 0;
+    margin: 0 0 1rem;
+    padding: 0 0 0.5rem;
     border: none;
     border-radius: 0;
     background: transparent;
   }
   .continue-watching-home-section .head {
     padding: 0 14px;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.5rem;
   }
   .continue-watching-home-section .head .title {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 800;
   }
   .continue-watching-home-section .head .t-nav {
@@ -260,8 +259,8 @@ body {
   }
   .continue-watching-home-list {
     display: flex;
-    gap: 10px;
-    padding: 4px 14px 14px;
+    gap: 8px;
+    padding: 0 14px 12px;
     margin: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -273,55 +272,51 @@ body {
   }
   .continue-watching-home-list::-webkit-scrollbar { display: none; }
   .continue-watching-card {
-    flex: 0 0 120px;
+    flex: 0 0 90px;
     scroll-snap-align: start;
   }
   .continue-watching-card .cw-poster {
-    border-radius: 10px;
+    border-radius: 8px;
     aspect-ratio: 2 / 3;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
   }
   .continue-watching-card:active .cw-poster {
-    transform: scale(0.97);
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    transform: scale(0.96);
   }
   .continue-watching-card .cw-ep-badge {
-    top: 5px;
-    left: 5px;
-    padding: 2px 6px;
-    border-radius: 5px;
-    font-size: 0.6rem;
+    top: 4px;
+    left: 4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.55rem;
   }
   .continue-watching-card .cw-remove {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     opacity: 1;
     visibility: visible;
     background: rgba(0, 0, 0, 0.6);
+    top: 4px;
+    right: 4px;
   }
   .continue-watching-card .cw-remove svg {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
   }
   .continue-watching-card .cw-progress {
-    height: 2.5px;
+    height: 2px;
   }
   .continue-watching-card .cw-title {
-    margin-top: 6px;
-    font-size: 0.78rem;
-    line-height: 1.25;
-    min-height: 1.9em;
-    -webkit-line-clamp: 2;
+    margin-top: 5px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    min-height: 1.7em;
+    -webkit-line-clamp: 1;
   }
   .continue-watching-card .cw-meta {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     margin-top: 1px;
-  }
-}
-@media (max-width: 400px) {
-  .continue-watching-card {
-    flex: 0 0 105px;
   }
 }
 
@@ -11716,7 +11711,6 @@ footer .links .body ul li a:hover {
     z-index: 80;
     padding: 10px 12px;
     background: var(--c-surface);
-    border-bottom: 1px solid var(--c-border);
   }
   header #search.show {
     display: block;
