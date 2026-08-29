@@ -575,8 +575,17 @@
             .info-sidebar { display: flex; align-items: stretch; }
             .info-sidebar .poster-wrap { width: 104px; aspect-ratio: auto; flex-shrink: 0; }
             .info-sidebar .info-body { flex: 1; min-width: 0; padding: 12px; }
-            .ep-toolbar { gap: 0.4rem; }
+            .ep-toolbar { gap: 0.4rem; flex-wrap: wrap; }
             .ep-range-select { max-width: 100%; }
+            .ep-panel { padding: 0; }
+            .ep-panel-head { padding: 0.6rem 0.7rem; }
+            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr)); gap: 0.2rem; padding: 0.3rem; max-height: 320px; }
+            .server-panel .server-body { padding: 0.6rem; }
+            .server-list { gap: 4px; }
+            .sv-btn { padding: 6px 10px; font-size: 0.72rem; }
+            .watch-head { padding: 10px 2px; }
+            .watch-head-title h2 { font-size: 1.1rem; }
+            .extras-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
         }
         @media (max-width: 700px) {
             /* Miruro-style single-row player menu bar on mobile: the toggles
@@ -598,11 +607,16 @@
             .ctrl.check label { font-size: 0.68rem; }
         }
         @media (max-width: 560px) {
-            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); }
+            .episode-grid { grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr)); gap: 0.15rem; padding: 0.25rem; max-height: 260px; }
             .current-episode-name { max-width: 36vw; }
             .ep-sidebar { gap: 12px; }
             .ctrl.check label { font-size: 0.64rem; }
             .ctrl { padding: 6px 7px; font-size: 0.68rem; }
+            .ep-panel-head h2 { font-size: 0.85rem; }
+            .sv-btn { padding: 5px 8px; font-size: 0.68rem; }
+            .server-section { margin-bottom: 8px; }
+            .server-type-label { font-size: 0.65rem; margin-bottom: 4px; }
+            .extras-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
         }
     </style>
 </head>
@@ -1602,7 +1616,11 @@ function applyInfo(resolved) {
     if (!info) return;
     state.info = info;
     state.poster = info.bannerImage || info.coverImage?.extraLarge || info.coverImage?.large || '';
-    posterImg.src = info.coverImage?.extraLarge || info.coverImage?.large || '';
+    const posterUrl = info.coverImage?.extraLarge || info.coverImage?.large || '';
+    if (posterUrl) {
+        posterImg.src = getProxyUrl(posterUrl);
+        posterImg.onerror = () => { posterImg.src = posterUrl; posterImg.onerror = null; };
+    }
     infoTitle.textContent = info.title?.english || info.title?.romaji || resolved.title || '—';
     if (info.averageScore) infoScore.textContent = '★ ' + info.averageScore;
     const parts = [];
