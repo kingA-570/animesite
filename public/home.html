@@ -1240,7 +1240,7 @@
                                     </div>
                                 </div>
                                 <div class="body">
-                                    <div id="continue-watching-home-list" class="continue-watching-home-list"></div>
+                                    <div id="continue-watching-home-list" class="continue-watching-home-list ani items"></div>
                                 </div>
                             </section>
                             <section id="my-list-home-section" class="my-list-home-section" style="display:none">
@@ -3064,26 +3064,34 @@
                             const escKey = String(r.key || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                             const width = Math.min(100, Math.max(5, r.percent || 5));
                             return `
-                                <a class="continue-watching-card" href="watch.html?${q.toString()}" title="${escTitle}">
-                                    <div class="cw-poster">
-                                        ${posterSrc ? `<img src="${posterSrc}" alt="${escTitle}" loading="lazy" onerror="this.style.display='none'">` : ''}
-                                        <div class="cw-badges"><span class="cw-ep-badge">EP ${r.ep}</span></div>
-                                        <div class="cw-overlay"><i class="fa-solid fa-play"></i></div>
-                                        <button class="cw-remove" type="button"
-                                                data-key="${escKey}"
-                                                title="Remove" aria-label="Remove ${escTitle}">
-                                            <i class="fa-solid fa-xmark"></i>
-                                        </button>
-                                        <div class="cw-progress"><div class="cw-progress-bar" style="width:${width}%"></div></div>
+                                <div class="item">
+                                    <div class="ani poster">
+                                        <a href="watch.html?${q.toString()}" title="${escTitle}">
+                                            ${posterSrc ? `<img src="${posterSrc}" alt="${escTitle}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+                                            <div class="meta playing">
+                                                <div class="inner">
+                                                    <div class="left">
+                                                        <span class="ep-status total"><span>${r.ep}</span></span>
+                                                        <span class="ep-status sub"><span>EP${r.ep}</span></span>
+                                                    </div>
+                                                    <div class="right">${r.percent ? r.percent + '%' : ''}</div>
+                                                </div>
+                                                <div class="progress"><span style="width:${width}%"></span></div>
+                                            </div>
+                                            <button class="playing-remove" type="button"
+                                                    data-key="${escKey}"
+                                                    title="Remove" aria-label="Remove ${escTitle}"></button>
+                                        </a>
                                     </div>
-                                    <strong class="cw-title" title="${escTitle}">${escTitle}</strong>
-                                    <div class="cw-meta">Ep ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
-                                </a>`;
+                                    <div class="info">
+                                        <a class="name d-title" href="watch.html?${q.toString()}" title="${escTitle}">${escTitle}</a>
+                                    </div>
+                                </div>`;
                         }).join('');
                     };
 
                     list.addEventListener('click', (e) => {
-                        const btn = e.target.closest('.cw-remove');
+                        const btn = e.target.closest('.playing-remove');
                         if (!btn) return;
                         e.preventDefault();
                         e.stopPropagation();
