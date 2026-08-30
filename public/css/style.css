@@ -153,6 +153,28 @@ body {
   padding: 0.4rem 0;
 }
 
+/* Show All / Show Less button */
+.cw-show-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--c-accent);
+  background: transparent;
+  border: 1px solid var(--c-accent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.cw-show-all:hover {
+  background: var(--c-accent);
+  color: #fff;
+}
+
 /* Mobile: smaller scroll cards (2 visible per row, like the grid's 50%) */
 @media (max-width: 767.98px) {
   .continue-watching-home-section {
@@ -9764,8 +9786,7 @@ span.rating {
 .logo {
   display: flex;
   align-items: center;
-  display: block;
-  height: 2.7rem;
+  height: 2.6rem;
 }
 .logo img {
   height: 100%;
@@ -10058,7 +10079,7 @@ header #menu > ul > li > ul > li > a:hover span {
 header .logo {
   margin-left: 0;
   margin-right: 2rem;
-  height: 3.2rem;
+  height: 2.6rem;
 }
 header .logo a {
   display: block;
@@ -12006,8 +12027,17 @@ footer .links .body ul li a:hover {
     display: none !important;
   }
   header #menu-toggler {
-    padding: 0;
-    margin-right: 20px;
+    padding: 6px;
+    margin-right: 14px;
+    width: 36px;
+    height: 36px;
+  }
+  header #menu-toggler i {
+    width: 30px;
+    height: 3.5px;
+  }
+  header .logo {
+    height: 2.2rem;
   }
   header #menu {
     height: 54px;
@@ -12203,7 +12233,7 @@ footer .links .body ul li a:hover {
     margin-right: 15px;
   }
   header .logo {
-    height: 2.3rem;
+    height: 2.2rem;
   }
   footer {
     text-align: center;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+hey fic the animeverse to same size at all pages which is at defaukt page also fix cintinue watching if it gets too mucg titles add a option to see them i mean animeverse at home watcg.html also align it too with three line icon<!DOCTYPE html>
 <html lang="en">
     <head>
         <title>AnimeVerse - Watch Anime Online, Free Anime Streaming</title>
@@ -1298,6 +1298,7 @@
                                 <div class="head with-more">
                                     <div class="title mr-3">Continue Watching</div>
                                     <div class="end">
+                                        <button type="button" class="cw-show-all" id="cwShowAllBtn" style="display:none">Show All</button>
                                         <span class="t-nav">
                                             <span class="cw-prev disabled" title="Scroll left"><i class="fa-solid fa-angle-left"></i></span>
                                             <span class="cw-next" title="Scroll right"><i class="fa-solid fa-angle-right"></i></span>
@@ -3112,14 +3113,29 @@
                                 slug: c.slug || '',
                                 percent,
                             };
-                        }).sort((a, b) => ((cont[b.key] || {}).ts || 0) - ((cont[a.key] || {}).ts || 0)).slice(0, 5);
+                        }).sort((a, b) => ((cont[b.key] || {}).ts || 0) - ((cont[a.key] || {}).ts || 0));
+
+                        // Show All / Show Less toggle
+                        const CW_MAX = 5;
+                        const showAllBtn = document.getElementById('cwShowAllBtn');
+                        if (!list._cwExpanded) list._cwExpanded = false;
+                        const visibleRows = list._cwExpanded ? rows : rows.slice(0, CW_MAX);
+                        if (showAllBtn) {
+                            if (rows.length > CW_MAX) {
+                                showAllBtn.style.display = '';
+                                showAllBtn.textContent = list._cwExpanded ? 'Show Less' : 'Show All (' + rows.length + ')';
+                            } else {
+                                showAllBtn.style.display = 'none';
+                            }
+                        }
+                        const rowsToRender = visibleRows;
 
                         if (!rows.length) {
                             list.innerHTML = '<div class="continue-watching-empty">Your watch progress will show up here.</div>';
                             return;
                         }
 
-                        list.innerHTML = rows.map(r => {
+                        list.innerHTML = rowsToRender.map(r => {
                             const q = new URLSearchParams();
                             if (r.slug) q.set('slug', r.slug);
                             if (r.anilistId) q.set('anilistId', r.anilistId);
@@ -3162,6 +3178,14 @@
                         e.stopPropagation();
                         removeContinueItem(btn.dataset.key);
                     });
+
+                    // Show All / Show Less toggle
+                    if (showAllBtn) {
+                        showAllBtn.onclick = () => {
+                            list._cwExpanded = !list._cwExpanded;
+                            render();
+                        };
+                    }
 
                     render();
                     window.addEventListener('animekai:continue-updated', render);
