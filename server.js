@@ -42,7 +42,8 @@ const MIRURO_HEADERS = {
 
 // Rate limiting config
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 120; // max requests per window per IP
+const FREE_TIER_MODE = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.FREE_TIER === '1');
+const RATE_LIMIT_MAX = FREE_TIER_MODE ? 60 : 120; // max requests per window per IP
 
 // ========================
 // MIME TYPES
@@ -454,15 +455,22 @@ const VIDPLAY_HOSTS = ['vidplay.online', 'vidplay.site', 'vidplay.lol', 'vidplay
 const EMBED_HLS_HOSTS = ['vidtube.site', 'megaplay.buzz', 'vivibebe.site', 'krussdomi.com', ...VIDPLAY_HOSTS];
 
 // Retry a flaky miruro pipe call (the sources endpoint is rate-limited and
-// intermittently returns 444/upstream-unreachable from a cold IP).
-async function miruroWithRetry(fn, attempts = 3) {
+// intermittently returns 444/upstream-unreachable from a cold IP). The Render
+// free tier is memory/CPU constrained, so keep retries short and low-volume.
+const MIRURO_RETRY_BACKOFF = FREE_TIER_MODE ? 250 : 800;
+const MIRURO_EMBED_TIMEOUT = FREE_TIER_MODE ? 5000 : 18000;
+const MIRURO_PROVIDER_CAP = FREE_TIER_MODE ? 2 : 4;
+
+async function miruroWithRetry(fn, attempts = FREE_TIER_MODE ? 1 : 2) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, MIRURO_RETRY_BACKOFF * (i + 1)));
+      }
     }
   }
   throw lastErr;
@@ -475,11 +483,10 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
   const data = await miruroFetchEpisodes(anilistId);
   const providers = data.providers || {};
   const jobs = [];
-  // Probe only the top providers: each one is a separate (rate-limited) sources
-  // call, so limiting the fan-out keeps the response fast. The others (moo, bee,
-  // ...) rarely carry unique embed hosts beyond what these already provide.
-  const preferred = ['bonk', 'kiwi', 'hop', 'ally', 'pewe'];
-  const ordered = [...preferred.filter((p) => providers[p]), ...Object.keys(providers).filter((p) => !preferred.includes(p))].slice(0, 4);
+  // Keep fan-out tight on free-tier deployments: the upstream providers are the
+  // main source of CPU/RAM spikes and rate-limit pressure.
+  const preferred = FREE_TIER_MODE ? ['bonk', 'kiwi', 'hop'] : ['bonk', 'kiwi', 'hop', 'ally', 'pewe'];
+  const ordered = [...preferred.filter((p) => providers[p]), ...Object.keys(providers).filter((p) => !preferred.includes(p))].slice(0, MIRURO_PROVIDER_CAP);
   for (const provider of ordered) {
     const providerData = providers[provider];
     const epGroups = providerData?.episodes || {};
@@ -516,13 +523,13 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
   // the request past ~18s; whatever embeds we've collected by then are returned.
   await Promise.race([
     Promise.allSettled(jobs.map(runJob)),
-    new Promise((r) => setTimeout(r, 18000)),
+    new Promise((r) => setTimeout(r, MIRURO_EMBED_TIMEOUT)),
   ]);
 
   const result = { embeds };
   miruroEmbedsCache.set(cacheKey, result);
   pruneCache(miruroEmbedsCache, 64);
-  setTimeout(() => miruroEmbedsCache.delete(cacheKey), 60 * 60 * 1000);
+  setTimeout(() => miruroEmbedsCache.delete(cacheKey), FREE_TIER_MODE ? 30 * 60 * 1000 : 60 * 60 * 1000);
   return result;
 }
 
