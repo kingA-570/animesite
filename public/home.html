@@ -3065,10 +3065,13 @@
                             const width = Math.min(100, Math.max(5, r.percent || 5));
                             return `
                                 <a class="continue-watching-card" href="watch.html?${q.toString()}" title="${escTitle}">
-                                    <div class="cw-poster">
+                                    <div class="cw-media">
                                         ${posterSrc ? `<img src="${posterSrc}" alt="${escTitle}" loading="lazy" onerror="this.style.display='none'">` : ''}
-                                        <div class="cw-badges"><span class="cw-ep-badge">EP ${r.ep}</span></div>
-                                        <div class="cw-overlay"><i class="fa-solid fa-play"></i></div>
+                                        <span class="cw-play"><i class="fa-solid fa-play"></i></span>
+                                        <div class="cw-info">
+                                            <div class="cw-title">${escTitle}</div>
+                                            <div class="cw-meta">Episode ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
+                                        </div>
                                         <button class="cw-remove" type="button"
                                                 data-key="${escKey}"
                                                 title="Remove" aria-label="Remove ${escTitle}">
@@ -3076,8 +3079,6 @@
                                         </button>
                                         <div class="cw-progress"><div class="cw-progress-bar" style="width:${width}%"></div></div>
                                     </div>
-                                    <strong class="cw-title" title="${escTitle}">${escTitle}</strong>
-                                    <div class="cw-meta">Ep ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
                                 </a>`;
                         }).join('');
                     };
