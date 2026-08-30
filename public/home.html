@@ -3065,21 +3065,19 @@
                             const width = Math.min(100, Math.max(5, r.percent || 5));
                             return `
                                 <a class="continue-watching-card" href="watch.html?${q.toString()}" title="${escTitle}">
-                                    <div class="cw-media">
+                                    <div class="cw-poster">
                                         ${posterSrc ? `<img src="${posterSrc}" alt="${escTitle}" loading="lazy" onerror="this.style.display='none'">` : ''}
-                                        <span class="cw-play"><i class="fa-solid fa-play"></i></span>
-                                        <span class="cw-ep-badge">EP ${r.ep}</span>
+                                        <div class="cw-badges"><span class="cw-ep-badge">EP ${r.ep}</span></div>
+                                        <div class="cw-overlay"><i class="fa-solid fa-play"></i></div>
                                         <button class="cw-remove" type="button"
                                                 data-key="${escKey}"
                                                 title="Remove" aria-label="Remove ${escTitle}">
                                             <i class="fa-solid fa-xmark"></i>
                                         </button>
-                                        <div class="cw-info">
-                                            <div class="cw-title">${escTitle}</div>
-                                            <div class="cw-meta"><i class="fa-solid fa-play" style="font-size:.5rem;margin-right:4px"></i>Episode ${r.ep}</div>
-                                        </div>
                                         <div class="cw-progress"><div class="cw-progress-bar" style="width:${width}%"></div></div>
                                     </div>
+                                    <strong class="cw-title" title="${escTitle}">${escTitle}</strong>
+                                    <div class="cw-meta">Ep ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
                                 </a>`;
                         }).join('');
                     };
