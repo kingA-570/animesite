@@ -9716,31 +9716,36 @@ span.rating {
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  text-align: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
   z-index: 10;
   opacity: 0;
-  transition: all 0.3s;
+  transform: translateY(-6px) scale(0.85);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  top: -34px;
-  border-radius: 50%;
-  background: #fff;
-  color: #fd7e14;
+  padding: 0;
+  line-height: 1;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .ani.items .item .poster .playing-remove:before {
   content: "\f00d";
   font-family: "Font Awesome 6 Free";
-  color: #222;
   font-weight: 900;
-  font-size: 1.2rem;
+  font-size: 0.9rem;
+  color: #fff;
 }
-.ani.items .item .poster .playing-remove:hover {
-  box-shadow: 0 0 15px 15px rgba(0, 0, 0, 0.5);
-}
-.ani.items .item .poster .playing-remove:hover:before {
-  color: #dc3545;
+.ani.items .item .poster .playing-remove:hover,
+.ani.items .item .poster .playing-remove:focus-visible {
+  background: rgba(220, 53, 69, 0.96);
+  box-shadow: 0 10px 22px rgba(220, 53, 69, 0.42);
 }
 .ani.items .item .poster .current {
   position: absolute;
@@ -9752,14 +9757,15 @@ span.rating {
   z-index: 3;
   color: #f8f8f8;
 }
-.ani.items .item .poster:hover .playing-remove {
+.ani.items .item .poster:hover .playing-remove,
+.ani.items .item .poster:focus-within .playing-remove {
   opacity: 1;
-  top: 10px;
+  transform: translateY(0) scale(1);
 }
 @media (max-width: 768px) {
   .ani.items .item .poster .playing-remove {
     opacity: 1;
-    top: 10px;
+    transform: translateY(0) scale(1);
   }
 }
 .ani.items .item .info .name {
