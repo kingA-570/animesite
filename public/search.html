@@ -183,22 +183,27 @@
                 max-width: 100%;
                 border: none;
                 background: var(--c-surface-3);
+                direction: ltr;
             }
             #search form:focus-within {
                 border-color: var(--c-accent);
                 background: var(--c-surface);
                 box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
             }
-            #search form input { font-size: 1rem; color: var(--c-text); background: transparent; }
+            #search form input { font-size: 1rem; color: var(--c-text); background: transparent; direction: ltr; text-align: left; }
             #search form button { color: var(--c-text-3); background: transparent; }
-            #search .search-popup {
-                position: relative;
+            header #search .search-popup {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
                 border-radius: 14px;
                 box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
                 margin-top: 8px;
                 max-height: 55vh;
                 overflow-y: auto;
                 border: 1px solid var(--c-border);
+                z-index: 80;
             }
             #search .search-popup .s-close { display: none; }
             #search .search-popup .body { padding: 4px; }
