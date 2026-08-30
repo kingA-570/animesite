@@ -359,6 +359,24 @@
         let searchItems = [];
         let searchIdx = -1;
 
+        function closeSearchBar() {
+            if (!search) return;
+            search.classList.remove('search-open');
+            if (window.innerWidth < 1200) search.classList.remove('show');
+            searchItems = [];
+            searchIdx = -1;
+            const popup = search.querySelector('.search-popup');
+            if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+        }
+
+        // Close the live-search popup when tapping anywhere outside the search
+        // box (on mobile, also hide the bar) — keeps results tappable on touch.
+        document.addEventListener('click', (e) => {
+            if (search && search.classList.contains('search-open') && !search.contains(e.target) && !(searchToggler && searchToggler.contains(e.target))) {
+                search.classList.remove('search-open', 'show');
+            }
+        });
+
         function renderSearch() {
             const popup = search ? search.querySelector('.search-popup') : null;
             if (!popup) return;
@@ -452,14 +470,13 @@
                     e.preventDefault();
                     const link = search.querySelector('.item.active');
                     if (link) window.location.href = link.href;
+                } else if (e.key === 'Escape') {
+                    closeSearchBar();
                 }
             });
 
             inp.addEventListener('focus', () => {
                 if (searchItems.length) search.classList.add('search-open');
-            });
-            inp.addEventListener('blur', () => {
-                setTimeout(() => search.classList.remove('search-open'), 150);
             });
 
             if (clearBtn) clearBtn.addEventListener('click', () => {
@@ -496,6 +513,8 @@
                 if (show) {
                     const inp = search.querySelector('input');
                     if (inp) inp.focus();
+                } else {
+                    search.classList.remove('search-open');
                 }
             });
         }

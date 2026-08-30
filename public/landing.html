@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>AnimeVerse - Watch Anime Online, Free Anime Streaming</title>
+        <meta charset="utf-8"/>
+        <meta http-equiv="content-language" content="en"/>
+        <meta name="description" content="AnimeVerse is one of the best places to watch anime for free. Enjoy ad-free sub and dub episodes without creating an account. Jump in and start streaming now."/>
+        <link rel="shortcut icon" href="img/TITLEBAR.PNG" type="image/x-icon"/>
+        <meta property="og:title" content="AnimeVerse - Watch Anime Online, Free Anime Streaming"/>
+        <meta property="og:type" content="website"/>
+        <meta name="robots" content="index, follow">
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"/>
+        <link rel="preconnect" href="https://fonts.googleapis.com/"/>
+        <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin/>
+        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Nunito:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+        <link rel="stylesheet" href="css/themes.css"/>
+        <script type="text/javascript" src="js/theme.js"></script>
+        <style>
+            :root { color-scheme: dark; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            html, body { height: 100%; }
+            body {
+                font-family: 'Nunito', sans-serif;
+                background: var(--c-header);
+                color: var(--c-text);
+                overflow-x: hidden;
+            }
+            body.landing { background: transparent !important; }
+
+            .bg-video {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                object-fit: cover; z-index: -2;
+            }
+            .bg-video-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: linear-gradient(180deg, rgba(7,10,18,0.82) 0%, rgba(10,14,24,0.86) 55%, var(--c-header) 100%);
+                z-index: -1;
+            }
+
+            /* ===== Top nav ===== */
+            .land-header {
+                position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 16px 24px;
+            }
+            .land-logo {
+                display: flex; align-items: center; gap: 10px;
+                color: var(--c-text-bright); text-decoration: none; font-weight: 700;
+            }
+            .land-logo img { height: 40px; width: auto; }
+            .land-logo span { font-size: 1.35rem; letter-spacing: 0.5px; }
+            .land-logo b { color: var(--c-accent); font-weight: 800; }
+            .land-nav { display: flex; align-items: center; gap: 8px; }
+            .land-nav a {
+                color: var(--c-text-2); text-decoration: none; font-weight: 600;
+                padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; transition: all .15s;
+            }
+            .land-nav a:hover { color: var(--c-text-bright); background: var(--c-hover, rgba(255,255,255,.06)); }
+
+            /* ===== Hero ===== */
+            .hero {
+                min-height: 82vh;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                text-align: center; padding: 130px 20px 70px;
+            }
+            .hero h1 {
+                font-family: 'Bebas Neue', sans-serif;
+                font-size: clamp(2.6rem, 9vw, 6rem);
+                line-height: 1; color: var(--c-text-bright);
+                letter-spacing: 1px; margin-bottom: 14px;
+            }
+            .hero h1 i { color: var(--c-accent); font-style: normal; }
+            .hero p.tagline {
+                font-size: clamp(1rem, 2.6vw, 1.25rem);
+                color: var(--c-text-2); max-width: 560px; margin-bottom: 34px; line-height: 1.6;
+            }
+
+            /* ===== Live search ===== */
+            .hero-search { position: relative; width: min(640px, 100%); }
+            .hero-search form { position: relative; display: flex; align-items: center; }
+            .hero-search input {
+                width: 100%; padding: 16px 52px 16px 48px;
+                border-radius: 14px; border: 1px solid var(--c-border);
+                background: rgba(24,29,34,0.82); color: var(--c-text-bright);
+                font-size: 1.05rem; outline: none; transition: border-color .15s, box-shadow .15s;
+            }
+            .hero-search input::placeholder { color: var(--c-text-3); }
+            .hero-search input:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 25%, transparent); }
+            .hero-search .s-icon { position: absolute; left: 17px; color: var(--c-text-3); pointer-events: none; }
+            .hero-search .s-clear {
+                position: absolute; right: 14px; border: none; background: none; color: var(--c-text-2);
+                font-size: 1rem; cursor: pointer; padding: 4px; display: none;
+            }
+            .hero-search form.has-value .s-clear { display: block; }
+
+            .search-popup {
+                position: absolute; top: calc(100% + 10px); left: 0; right: 0;
+                background: var(--c-surface); border: 1px solid var(--c-border);
+                border-radius: 14px; box-shadow: 0 24px 50px rgba(0,0,0,.45);
+                overflow: hidden; display: none; text-align: left;
+            }
+            .search-popup.open { display: block; }
+            .search-popup .items { max-height: 320px; overflow-y: auto; padding: 8px; }
+            .search-popup .item {
+                display: flex; align-items: center; gap: 12px; padding: 8px;
+                border-radius: 10px; text-decoration: none; color: var(--c-text);
+            }
+            .search-popup .item:hover, .search-popup .item.active { background: var(--c-hover, rgba(255,255,255,.06)); }
+            .search-popup .item .poster { width: 44px; height: 60px; border-radius: 6px; overflow: hidden; flex: 0 0 auto; background: var(--c-surface-3); }
+            .search-popup .item .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .search-popup .item .name { color: var(--c-text-bright); font-weight: 700; font-size: .98rem; display: block; }
+            .search-popup .item .meta { color: var(--c-text-3); font-size: .82rem; }
+            .search-popup .no-result { padding: 18px; text-align: center; color: var(--c-text-3); }
+            .search-popup .foot { border-top: 1px solid var(--c-border); padding: 10px; }
+            .search-popup .foot .more {
+                display: inline-flex; align-items: center; gap: 8px;
+                color: var(--c-accent); text-decoration: none; font-weight: 700; font-size: .9rem;
+            }
+
+            /* ===== Quick links ===== */
+            .quick {
+                display: grid; grid-template-columns: repeat(4, 1fr);
+                gap: 14px; width: min(820px, 100%); margin: 46px auto 0;
+            }
+            .quick a {
+                display: flex; flex-direction: column; align-items: center; gap: 10px;
+                padding: 22px 12px; border-radius: 14px; text-decoration: none;
+                background: rgba(24,29,34,.72); border: 1px solid var(--c-border);
+                color: var(--c-text); transition: all .18s;
+            }
+            .quick a:hover { border-color: var(--c-accent); color: var(--c-text-bright); transform: translateY(-3px); }
+            .quick a i { font-size: 1.6rem; color: var(--c-accent); }
+            .quick a span { font-weight: 700; font-size: .92rem; }
+
+            /* ===== Content rows ===== */
+            .land-content { width: min(1100px, 100%); margin: 60px auto 0; padding: 0 20px; }
+            .land-row { margin-bottom: 44px; }
+            .land-row .row-head {
+                display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+            }
+            .land-row .row-head h2 { font-size: 1.3rem; color: var(--c-text-bright); display: flex; align-items: center; gap: 10px; }
+            .land-row .row-head h2 i { color: var(--c-accent); }
+            .land-row .row-head a {
+                color: var(--c-accent); text-decoration: none; font-weight: 700; font-size: .9rem;
+            }
+            .land-row .row-head a:hover { text-decoration: underline; }
+
+            .hscroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+            .hscroll::-webkit-scrollbar { height: 6px; }
+            .hscroll::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 4px; }
+
+            .cw-card {
+                flex: 0 0 150px; text-decoration: none; color: var(--c-text);
+            }
+            .cw-card .poster { position: relative; aspect-ratio: 2/3; border-radius: 10px; overflow: hidden; background: var(--c-surface-3); }
+            .cw-card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .cw-card .ep-badge {
+                position: absolute; bottom: 6px; left: 6px; font-size: .68rem; font-weight: 700;
+                background: var(--c-accent); color: #fff; padding: 2px 7px; border-radius: 5px;
+            }
+            .cw-card .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,.4); }
+            .cw-card .progress-bar { height: 100%; background: var(--c-accent); border-radius: 0 2px 2px 0; }
+            .cw-card .title { margin-top: 8px; font-weight: 700; font-size: .88rem; color: var(--c-text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .cw-card .meta { font-size: .76rem; color: var(--c-text-3); }
+            .row-empty { color: var(--c-text-3); font-size: .95rem; }
+
+            /* ===== Footer ===== */
+            .land-footer {
+                margin-top: 60px; border-top: 1px solid var(--c-border);
+                padding: 28px 20px; text-align: center; color: var(--c-text-3); font-size: .88rem;
+            }
+            .land-footer .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-bottom: 14px; }
+            .land-footer .links a { color: var(--c-text-2); text-decoration: none; }
+            .land-footer .links a:hover { color: var(--c-text-bright); }
+
+            @media (max-width: 720px) {
+                .land-header { padding: 12px 16px; }
+                .land-nav a { display: none; }
+                .quick { grid-template-columns: repeat(2, 1fr); }
+                .cw-card { flex: 0 0 120px; }
+            }
+        </style>
+    </head>
+    <body class="landing">
+        <video class="bg-video" autoplay muted loop playsinline preload="auto">
+            <source src="img/12.mp4" type="video/mp4"/>
+        </video>
+        <div class="bg-video-overlay"></div>
+
+        <header class="land-header">
+            <a class="land-logo" href="/home">
+                <img src="img/TITLEBAR.PNG" alt="AnimeVerse" onerror="this.style.display='none'"/>
+                <span>Anime<b>Verse</b></span>
+            </a>
+            <nav class="land-nav">
+                <a href="/home">Home</a>
+                <a href="/catalog">Catalog</a>
+                <a href="/schedule">Schedule</a>
+                <a href="/profile">Profile</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <h1>Watch <i>Anime</i> Free<br/>Anytime, Anywhere</h1>
+                <p class="tagline">Stream thousands of sub &amp; dub episodes in HD — completely free,
+                    no account required. Jump right in.</p>
+
+                <div class="hero-search" id="hero-search">
+                    <form autocomplete="off">
+                        <i class="fa-solid fa-magnifying-glass s-icon"></i>
+                        <input type="text" placeholder="Search your favourite anime..." aria-label="Search"/>
+                        <button type="button" class="s-clear" aria-label="Clear"><i class="fa-solid fa-xmark"></i></button>
+                    </form>
+                    <div class="search-popup">
+                        <div class="items"></div>
+                        <div class="foot"><a class="more" href="#"><i class="fa-solid fa-arrow-right"></i> View all results</a></div>
+                    </div>
+                </div>
+
+                <div class="quick">
+                    <a href="/home"><i class="fa-solid fa-house"></i><span>Browse Home</span></a>
+                    <a href="/catalog"><i class="fa-solid fa-layer-group"></i><span>Catalog</span></a>
+                    <a href="/schedule"><i class="fa-solid fa-calendar-days"></i><span>Schedule</span></a>
+                    <a href="/profile"><i class="fa-solid fa-bookmark"></i><span>My List</span></a>
+                </div>
+            </section>
+
+            <section class="land-content">
+                <div class="land-row">
+                    <div class="row-head">
+                        <h2><i class="fa-solid fa-clock-rotate-left"></i> Continue Watching</h2>
+                        <a href="/home">View all</a>
+                    </div>
+                    <div class="hscroll" id="cw-list"></div>
+                </div>
+                <div class="land-row">
+                    <div class="row-head">
+                        <h2><i class="fa-solid fa-fire"></i> Start Exploring</h2>
+                    </div>
+                    <p class="row-empty">Head to the <a href="/home" style="color:var(--c-accent)">homepage</a>
+                        for trending anime, the latest releases, and personalized recommendations.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="land-footer">
+            <div class="links">
+                <a href="/home">Home</a>
+                <a href="/catalog">Catalog</a>
+                <a href="/schedule">Schedule</a>
+                <a href="/profile">My List</a>
+                <a href="/copyright">DMCA / Terms</a>
+            </div>
+            <div>AnimeVerse — Stream anime for free. All content is for demonstration only.</div>
+        </footer>
+
+        <script>
+        (function () {
+            const searchBox = document.getElementById('hero-search');
+            const form = searchBox.querySelector('form');
+            const inp = form.querySelector('input');
+            const clearBtn = form.querySelector('.s-clear');
+            const popup = searchBox.querySelector('.search-popup');
+            const items = popup.querySelector('.items');
+            const more = popup.querySelector('.more');
+            let timer = null, seq = 0, list = [], idx = -1;
+
+            function updateBox() { form.classList.toggle('has-value', !!inp.value.trim()); }
+
+            function render() {
+                if (!list.length) {
+                    items.innerHTML = '<div class="no-result">No results found. Try another title.</div>';
+                    more.style.display = 'none';
+                    return;
+                }
+                items.innerHTML = list.map((it, i) =>
+                    '<a class="item' + (i === idx ? ' active' : '') + '" href="/watch.html?anilistId=' + it.id + '">' +
+                        '<span class="poster">' + (it.image ? '<img loading="lazy" src="' + it.image + '" alt=""/>' : '') + '</span>' +
+                        '<span><span class="name">' + it.title + '</span>' +
+                        '<span class="meta">' + [it.year, it.format].filter(Boolean).join(' · ') + ' · ' + (it.subCount || 0) + ' sub' + (it.dubCount ? ' · ' + it.dubCount + ' dub' : '') + '</span></span>' +
+                    '</a>'
+                ).join('');
+                more.style.display = 'inline-flex';
+                more.href = '/search?q=' + encodeURIComponent(inp.value.trim());
+                popup.classList.add('open');
+            }
+
+            inp.addEventListener('input', () => {
+                updateBox();
+                const kw = inp.value.trim();
+                if (!kw) {
+                    list = []; idx = -1; items.innerHTML = '';
+                    popup.classList.remove('open');
+                    return;
+                }
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    const my = ++seq;
+                    fetch('/api/anime/search?q=' + encodeURIComponent(kw))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (my !== seq) return;
+                            list = data.results || [];
+                            idx = list.length ? 0 : -1;
+                            render();
+                        })
+                        .catch(() => { list = []; render(); });
+                    if (list.length) popup.classList.add('open');
+                }, 250);
+            });
+
+            inp.addEventListener('keydown', (e) => {
+                if (!popup.classList.contains('open')) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); idx = list.length ? (idx + 1) % list.length : -1; render(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); idx = list.length ? (idx - 1 + list.length) % list.length : -1; render(); }
+                else if (e.key === 'Enter' && idx >= 0) {
+                    e.preventDefault();
+                    const active = items.querySelector('.item.active');
+                    if (active) window.location.href = active.href;
+                }
+                else if (e.key === 'Escape') { popup.classList.remove('open'); inp.blur(); }
+            });
+
+            clearBtn.addEventListener('click', () => { inp.value = ''; updateBox(); list = []; idx = -1; items.innerHTML = ''; popup.classList.remove('open'); inp.focus(); });
+
+            form.addEventListener('submit', (e) => {
+                const kw = inp.value.trim();
+                if (!kw) { e.preventDefault(); return; }
+                if (idx >= 0 && items.querySelector('.item.active')) { e.preventDefault(); window.location.href = items.querySelector('.item.active').href; return; }
+                e.preventDefault();
+                window.location.href = '/search?q=' + encodeURIComponent(kw);
+            });
+
+            // Close popup when clicking anywhere outside the hero search
+            document.addEventListener('click', (e) => {
+                if (!searchBox.contains(e.target)) popup.classList.remove('open');
+            });
+
+            // ===== Continue Watching =====
+            const read = (key) => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (err) { return {}; } };
+            const cwEl = document.getElementById('cw-list');
+            function renderCW() {
+                const cont = read('animekai:continue');
+                const playing = read('user.playing');
+                const rows = Object.keys(cont).map(key => {
+                    const c = cont[key] || {};
+                    const p = playing[key] || [c.epNum || c.ep || 1, 0, 0];
+                    const [ep, current, duration] = Array.isArray(p) ? p : [c.epNum || c.ep || 1, 0, 0];
+                    const percent = Number(duration) ? Math.min(99, Math.round((Number(current || 0) / Number(duration)) * 100)) : 0;
+                    const q = new URLSearchParams();
+                    if (c.slug) q.set('slug', c.slug);
+                    if (c.anilistId) q.set('anilistId', c.anilistId);
+                    q.set('ep', ep);
+                    return {
+                        key: key,
+                        ts: c.ts || 0,
+                        href: '/watch.html?' + q.toString(),
+                        title: c.title || key.replace(/[-_]+/g, ' ').replace(/\b\w/g, x => x.toUpperCase()),
+                        poster: c.poster || '',
+                        ep: ep,
+                        percent: percent,
+                    };
+                }).sort((a, b) => b.ts - a.ts).slice(0, 8);
+
+                if (!rows.length) {
+                    cwEl.innerHTML = '<p class="row-empty">Your watch progress will show up here.</p>';
+                    return;
+                }
+                cwEl.innerHTML = rows.map(r =>
+                    '<a class="cw-card" href="' + r.href + '">' +
+                        '<div class="poster">' + (r.poster ? '<img src="' + r.poster.replace(/"/g, '&quot;') + '" alt="" loading="lazy">' : '') +
+                            '<span class="ep-badge">EP ' + r.ep + '</span>' +
+                            (r.percent ? '<div class="progress"><div class="progress-bar" style="width:' + r.percent + '%"></div></div>' : '') +
+                        '</div>' +
+                        '<div class="title">' + r.title + '</div>' +
+                        '<div class="meta">Ep ' + r.ep + (r.percent ? ' · ' + r.percent + '%' : '') + '</div>' +
+                    '</a>'
+                ).join('');
+            }
+            renderCW();
+            window.addEventListener('animekai:continue-updated', renderCW);
+            window.addEventListener('storage', (e) => { if (e.key === 'animekai:continue' || e.key === 'user.playing') renderCW(); });
+        })();
+        </script>
+    </body>
+</html>

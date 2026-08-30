@@ -29,7 +29,7 @@ RUN (python3 -m playwright install-deps chromium \
 WORKDIR /app
 
 # No npm dependencies needed - server.js uses only Node built-ins
-COPY package.json server.js db.js animex.js miruro_sidecar.py ./
+COPY package.json server.js animex.js miruro_sidecar.py ./
 COPY public/ ./public/
 
 ENV PORT=3000 \
@@ -37,8 +37,7 @@ ENV PORT=3000 \
     NODE_ENV=production \
     # Keep the V8 heap bounded so the server shares the 512MB free-tier RAM
     # with the Python/Chromium sidecar instead of trying to grab it all.
-    # --experimental-sqlite is required for node:sqlite (DatabaseSync) on Node 22
-    NODE_OPTIONS="--max-old-space-size=192 --max-semi-space-size=16 --experimental-sqlite"
+  NODE_OPTIONS="--max-old-space-size=192 --max-semi-space-size=16"
 # Uncomment to require a token before anyone can use the site:
 # ENV ACCESS_TOKEN=change-me-to-a-strong-random-string
 

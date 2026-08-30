@@ -19,116 +19,156 @@
   .topbar nav { display:flex; gap:16px; font-weight:600; font-size:.92rem; flex:1; }
   .topbar nav a { color:var(--c-text); padding:4px 8px; border-radius:8px; }
   .topbar nav a:hover, .topbar nav a.active { color:var(--c-text-bright); background:var(--c-hover); }
-  #userarea { font-size:.85rem; font-weight:700; }
   .wrap { max-width:1400px; margin:0 auto; padding:20px 16px; }
   h1 { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:1px; color:var(--c-text-bright); margin:0 0 4px; }
+  .subtitle { color:var(--c-text-2); font-size:.85rem; margin-bottom:16px; }
   .tabs { display:flex; gap:8px; margin:16px 0 20px; }
   .tabs button { background:var(--c-surface); color:var(--c-text); border:1px solid var(--c-border); border-radius:10px; padding:8px 16px; cursor:pointer; font-weight:700; }
   .tabs button.active { background:var(--c-accent); border-color:var(--c-accent); color:var(--c-accent-text); }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
   .card { position:relative; background:var(--c-surface); border:1px solid var(--c-border); border-radius:12px; overflow:hidden; transition:transform .15s, border-color .15s; }
   .card:hover { transform:translateY(-4px); border-color:var(--c-accent); }
-  .card .poster { position:relative; aspect-ratio:2/3; background:var(--c-hover) center/cover no-repeat; }
+  .card .poster { position:relative; aspect-ratio:2/3; background:var(--c-hover) center/cover no-repeat; display:block; }
   .card .ep { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.65); color:#fff; font-size:.68rem; font-weight:700; padding:3px 7px; border-radius:6px; }
-  .card .rm { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.65); color:#ff6b6b; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius:50%; cursor:pointer; font-size:.7rem; border:0; }
+  .card .status-badge { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.65); color:var(--c-accent-soft); font-size:.62rem; font-weight:700; padding:3px 7px; border-radius:6px; text-transform:uppercase; }
+  .card .rm { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,.65); color:#ff6b6b; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; cursor:pointer; font-size:.7rem; border:0; opacity:0; transition:opacity .15s; }
+  .card:hover .rm { opacity:1; }
   .card .info { padding:10px; }
   .card .info .t { font-size:.85rem; font-weight:700; color:var(--c-text-bright); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  /* auth card */
-  .authbox { max-width:480px; margin:40px auto; background:var(--c-surface); border:1px solid var(--c-border); border-radius:16px; padding:30px; }
-  .authbox h2 { margin:0 0 6px; color:var(--c-text-bright); font-size:1.3rem; }
-  .authbox p { margin:0 0 18px; font-size:.85rem; opacity:.75; }
-  .authbox input { width:100%; box-sizing:border-box; margin:6px 0 12px; padding:11px 12px; background:var(--c-bg); color:var(--c-text); border:1px solid var(--c-border); border-radius:10px; outline:none; font-size:.92rem; }
-  .authbox input:focus { border-color:var(--c-accent); }
-  .authbox button { width:100%; padding:11px; border:0; border-radius:10px; background:var(--c-accent); color:var(--c-accent-text); font-weight:700; font-size:.95rem; cursor:pointer; }
-  .authbox .switch { text-align:center; margin-top:14px; font-size:.85rem; }
-  .authbox .switch a { color:var(--c-accent-soft); cursor:pointer; font-weight:700; }
   .empty { text-align:center; padding:50px 0; color:var(--c-text); opacity:.7; }
-  .spin { text-align:center; padding:60px 0; color:var(--c-text); }
-  .err { color:#ff6b6b; font-size:.85rem; margin-bottom:12px; min-height:18px; }
+  .empty i { font-size:2.5rem; margin-bottom:12px; display:block; color:var(--c-text-3); }
   @media(max-width:560px){ .grid{ grid-template-columns:repeat(auto-fill,minmax(110px,1fr));} }
 </style>
 </head>
 <body>
 <div class="topbar">
-  <a class="logo" href="/">Anime<span>Verse</span></a>
+  <a class="logo" href="/home">Anime<span>Verse</span></a>
   <nav>
     <a href="/home">Home</a>
     <a href="/catalog">Catalog</a>
     <a href="/schedule">Schedule</a>
     <a href="/profile" class="active">My List</a>
   </nav>
-  <div id="userarea"></div>
 </div>
 <div class="wrap" id="main">
   <div class="spin">Loading...</div>
 </div>
 <script>
-const main=document.getElementById('main');
-const userarea=document.getElementById('userarea');
-let user=null;
-let mode='watchlist';
+const main = document.getElementById('main');
+let mode = 'watchlist';
 
-async function api(url,opts){ const r=await fetch(url,opts); const d=await r.json().catch(()=>({})); return {r,d}; }
+const STATUS_LABELS = { watching: 'Watching', planning: 'Planning', completed: 'Completed', on_hold: 'On Hold', dropped: 'Dropped' };
 
-function cardHTML(m,isHistory){
-  const img=m.image||'';
+function read(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || {}; } catch(e) { return {}; }
+}
+
+function cardHTML(item, status) {
+  const img = item.poster || item.image || '';
   return `<div class="card">
-    <a href="/watch.html?anilistId=${m.anilistId}" class="poster" style="background-image:url('${img}')">
-      ${isHistory&&m.episode?`<span class="ep">Ep ${m.episode}</span>`:''}
+    <a href="/watch.html?anilistId=${item.id}" class="poster" style="background-image:url('${img.replace(/'/g, "\\'")}')">
     </a>
-    <button class="rm" title="Remove" data-id="${m.anilistId}" data-hist="${isHistory?1:0}"><i class="fas fa-times"></i></button>
-    <div class="info"><a href="/watch.html?anilistId=${m.anilistId}"><div class="t">${m.title||('ID '+m.anilistId)}</div></a></div>
+    ${status ? `<span class="status-badge">${STATUS_LABELS[status] || status}</span>` : ''}
+    <button class="rm" title="Remove" data-id="${item.id}"><i class="fas fa-times"></i></button>
+    <div class="info"><a href="/watch.html?anilistId=${item.id}"><div class="t">${item.title || ('ID ' + item.id)}</div></a></div>
   </div>`;
 }
 
-async function load(){
-  if(!user){
-    main.innerHTML=`<div class="authbox">
-      <h2>Sign in to sync your list</h2>
-      <p>Save bookmarks and watch progress across devices with a free account.</p>
-      <div class="err" id="errmsg"></div>
-      <input id="auser" placeholder="Username" autocomplete="username">
-      <input id="apass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
-      <button onclick="doAuth(false)">Sign in</button>
-      <div class="switch">New here? <a onclick="doAuth(true)">Create account</a></div>
-    </div>`;
-    return;
+function load() {
+  const list = read('animekai:list');
+  const cont = read('animekai:continue');
+  const playing = read('user.playing');
+
+  if (mode === 'watchlist') {
+    const items = Object.keys(list).map(id => ({ id, ...list[id] }))
+      .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+    if (!items.length) {
+      main.innerHTML = `<h1>Your Watchlist</h1>
+        <p class="subtitle">Anime you've bookmarked will appear here.</p>
+        <div class="empty"><i class="fas fa-bookmark"></i>Your watchlist is empty.<br>Browse anime and add some!</div>`;
+      return;
+    }
+
+    main.innerHTML = `<h1>Your Watchlist</h1>
+      <p class="subtitle">${items.length} title${items.length !== 1 ? 's' : ''}</p>
+      <div class="tabs">
+        <button class="active" onclick="setMode('watchlist')">Watchlist</button>
+        <button onclick="setMode('continue')">Continue Watching</button>
+      </div>
+      <div class="grid" id="grid"></div>`;
+
+    const grid = document.getElementById('grid');
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.innerHTML = cardHTML(item, item.status);
+      const card = div.firstElementChild;
+      card.querySelector('.rm').onclick = () => {
+        delete list[item.id];
+        localStorage.setItem('animekai:list', JSON.stringify(list));
+        load();
+      };
+      grid.appendChild(card);
+    });
+  } else {
+    // Continue watching
+    const items = Object.keys(cont).map(key => {
+      const c = cont[key] || {};
+      const p = playing[key] || [c.epNum || c.ep || 1, 0, 0];
+      const ep = Array.isArray(p) ? p[0] : (c.epNum || c.ep || 1);
+      return { key, title: c.title || key, poster: c.poster || '', ep, anilistId: c.anilistId || '', slug: c.slug || '' };
+    }).sort((a, b) => ((cont[b.key] || {}).ts || 0) - ((cont[a.key] || {}).ts || 0));
+
+    if (!items.length) {
+      main.innerHTML = `<h1>Continue Watching</h1>
+        <p class="subtitle">Your watch progress will show up here.</p>
+        <div class="tabs">
+          <button onclick="setMode('watchlist')">Watchlist</button>
+          <button class="active" onclick="setMode('continue')">Continue Watching</button>
+        </div>
+        <div class="empty"><i class="fas fa-play-circle"></i>Nothing here yet.<br>Start watching an anime!</div>`;
+      return;
+    }
+
+    main.innerHTML = `<h1>Continue Watching</h1>
+      <p class="subtitle">${items.length} anime</p>
+      <div class="tabs">
+        <button onclick="setMode('watchlist')">Watchlist</button>
+        <button class="active" onclick="setMode('continue')">Continue Watching</button>
+      </div>
+      <div class="grid" id="grid"></div>`;
+
+    const grid = document.getElementById('grid');
+    items.forEach(item => {
+      const q = new URLSearchParams();
+      if (item.slug) q.set('slug', item.slug);
+      if (item.anilistId) q.set('anilistId', item.anilistId);
+      q.set('ep', item.ep);
+
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="card">
+        <a href="/watch.html?${q.toString()}" class="poster" style="background-image:url('${(item.poster || '').replace(/'/g, "\\'")}')">
+          <span class="ep">Ep ${item.ep}</span>
+        </a>
+        <button class="rm" title="Remove" data-key="${item.key}"><i class="fas fa-times"></i></button>
+        <div class="info"><a href="/watch.html?${q.toString()}"><div class="t">${item.title}</div></a></div>
+      </div>`;
+      const card = div.firstElementChild;
+      card.querySelector('.rm').onclick = () => {
+        delete cont[item.key];
+        delete playing[item.key];
+        localStorage.setItem('animekai:continue', JSON.stringify(cont));
+        localStorage.setItem('user.playing', JSON.stringify(playing));
+        load();
+      };
+      grid.appendChild(card);
+    });
   }
-  userarea.textContent='Hi, '+user.username+' &middot; <a href="#" onclick="logout();return false;" style="color:var(--c-accent-soft)">Logout</a>';
-  main.innerHTML=`<h1>Your ${mode==='watchlist'?'Watchlist':'History'}</h1>
-    <div class="tabs">
-      <button id="t-watchlist" class="${mode==='watchlist'?'active':''}" onclick="setMode('watchlist')">Watchlist</button>
-      <button id="t-history" class="${mode==='history'?'active':''}" onclick="setMode('history')">History</button>
-    </div>
-    <div class="grid" id="grid"><div class="spin">Loading...</div></div>`;
-  const {d}=await api('/api/library/'+mode);
-  const gridEl=document.getElementById('grid');
-  gridEl.innerHTML='';
-  const items=d.items||[];
-  if(!items.length){ gridEl.innerHTML='<div class="empty">Your '+mode+' is empty. Start watching!</div>'; return; }
-  const frag=document.createDocumentFragment();
-  items.forEach(m=>{ const t=document.createElement('div'); t.innerHTML=cardHTML(m,mode==='history'); const c=t.firstElementChild; c.querySelector('.rm').onclick=()=>remove(m.anilistId); frag.appendChild(c); });
-  gridEl.appendChild(frag);
 }
-function setMode(m){ mode=m; if(user) load(); }
-async function remove(id){
-  await fetch('/api/library/'+mode+'?anilistId='+id,{method:'DELETE'});
-  load();
-}
-async function doAuth(reg){
-  const err=document.getElementById('errmsg');
-  const username=document.getElementById('auser').value.trim();
-  const password=document.getElementById('apass').value;
-  const {r,d}=await api('/api/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
-  if(r.ok){ user=d.user; load(); }
-  else err.textContent=d.error||'Something went wrong.';
-}
-async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); user=null; location.reload(); }
-(async()=>{
-  const {d}=await api('/api/auth/me');
-  user=d.user||null;
-  load();
-})();
+
+function setMode(m) { mode = m; load(); }
+
+load();
 </script>
 </body>
 </html>

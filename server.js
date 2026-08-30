@@ -5,14 +5,7 @@ const { URL } = require('url');
 const zlib = require('zlib');
 const crypto = require('crypto');
 
-const dbMod = require('./db');
 const animexScraper = require('./animex');
-
-const {
-  registerUser, loginUser, logoutUser, getUserBySession,
-  addWatchlist, removeWatchlist, getWatchlist, getWatchlistIds,
-  saveHistory, getHistory, getHistoryItem,
-} = dbMod;
 
 // ========================
 // CONFIGURATION
@@ -974,7 +967,11 @@ const CACHE_MAX_AGE = {
 async function serveStatic(reqUrl, res, req) {
   try {
     let pathname = reqUrl.pathname;
-    if (pathname === '/' || pathname === '/home') {
+    if (pathname === '/') {
+      // Landing page (distinct from the content homepage at /home)
+      pathname = '/landing.html';
+    }
+    if (pathname === '/home') {
       // Legacy search redirect (?keyword=... → /search?q=...)
       const kw = (reqUrl.searchParams.get('keyword') || '').trim();
       if (kw) {
@@ -983,6 +980,7 @@ async function serveStatic(reqUrl, res, req) {
       }
       pathname = '/home.html';
     }
+    if (pathname === '/landing' || pathname === '/landing.html') pathname = '/landing.html';
     if (pathname === '/animeverse' || pathname === '/animeverse.html') pathname = '/home.html';
     if (pathname === '/pages/dmca' || pathname === '/dmca' || pathname === '/pages/terms' ||
         pathname === '/terms' || pathname === '/contact' || pathname === '/copyright') pathname = '/copyright.html';
@@ -2357,91 +2355,6 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
-    }
-
-    // ========== ROUTE: account & library (auth via session cookie) ==========
-    function currentUser() {
-      const cookie = req.headers['cookie'] || '';
-      const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
-      return m ? getUserBySession(m[1]) : null;
-    }
-    const jsonBody = async () => {
-      try { return JSON.parse((await getRequestBody(req)).toString('utf8') || '{}'); } catch { return {}; }
-    };
-    const setSessionCookie = (res, token) => {
-      res.setHeader('Set-Cookie', `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
-    };
-
-    if (reqUrl.pathname === '/api/auth/register' && req.method === 'POST') {
-      const { username, password, email } = await jsonBody();
-      if (!username || !password || password.length < 6) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Valid username and password (6+ chars) required' }));
-      }
-      const result = registerUser(username, password, email);
-      if (result.error) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: result.error }));
-      }
-      setSessionCookie(res, result.token);
-      log(req.method, reqUrl.pathname, 200, `[AUTH] register ${username}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ user: result.user }));
-    }
-
-    if (reqUrl.pathname === '/api/auth/login' && req.method === 'POST') {
-      const { username, password } = await jsonBody();
-      const result = loginUser(username || '', password || '');
-      if (result.error) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: result.error }));
-      }
-      setSessionCookie(res, result.token);
-      log(req.method, reqUrl.pathname, 200, `[AUTH] login ${result.user.username}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ user: result.user }));
-    }
-
-    if (reqUrl.pathname === '/api/auth/logout' && req.method === 'POST') {
-      const cookie = req.headers['cookie'] || '';
-      const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
-      if (m) logoutUser(m[1]);
-      res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: true }));
-    }
-
-    if (reqUrl.pathname === '/api/auth/me') {
-      const user = currentUser();
-      log(req.method, reqUrl.pathname, 200, user ? `[AUTH] ${user.username}` : '[AUTH] guest');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ user }));
-    }
-
-    // ---------- Watchlist / library endpoints (require login) ----------
-    if (reqUrl.pathname === '/api/library/watchlist' || reqUrl.pathname === '/api/library/history') {
-      const user = currentUser();
-      if (!user) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Not authenticated' }));
-      }
-      const isHistory = reqUrl.pathname.endsWith('/history');
-      if (req.method === 'POST') {
-        const item = await jsonBody();
-        if (isHistory) saveHistory(user.id, item);
-        else if (item.anilistId) addWatchlist(user.id, item);
-        return res.end(JSON.stringify({ ok: true }));
-      }
-      if (req.method === 'DELETE') {
-        const anilistId = Number(reqUrl.searchParams.get('anilistId'));
-        if (!isHistory && anilistId) removeWatchlist(user.id, anilistId);
-        return res.end(JSON.stringify({ ok: true }));
-      }
-      const data = isHistory ? getHistory(user.id, 40) : getWatchlist(user.id);
-      const ids = getWatchlistIds(user.id);
-      log(req.method, reqUrl.pathname, 200, `[LIBRARY] ${isHistory ? 'history' : 'watchlist'} n=${data.length}`);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ items: data, saved: ids }));
     }
 
     // ========== ROUTE: /api/animex/servers (AnimeX servers for an episode) ==========

@@ -1351,7 +1351,7 @@ function saveContinue(extra) {
     store[key] = Object.assign({
         slug: state.slug || '',
         title: state.title || pageTitle.textContent || state.slug,
-        poster: state.poster || '',
+        poster: state.posterPortrait || state.poster || '',
         ep: state.currentEp,
         epNum: parseInt(state.currentEp, 10) || 0,
         ts: Date.now(),
@@ -1370,7 +1370,7 @@ function markWatched(epNum) {
     if (watched.indexOf(String(epNum)) === -1) {
         watched.push(String(epNum));
         entry.watched = watched;
-        store[key] = Object.assign({}, entry, { title: state.title || entry.title, poster: state.poster || entry.poster, ts: Date.now() });
+        store[key] = Object.assign({}, entry, { title: state.title || entry.title, poster: state.posterPortrait || state.poster || entry.poster, ts: Date.now() });
         localStorage.setItem(CONT_KEY, JSON.stringify(store));
         renderEpisodes(state.episodes);
     }
@@ -1665,7 +1665,8 @@ function applyInfo(resolved) {
     if (!info) return;
     state.info = info;
     state.poster = info.bannerImage || info.coverImage?.extraLarge || info.coverImage?.large || '';
-    const posterUrl = info.coverImage?.extraLarge || info.coverImage?.large || '';
+    state.posterPortrait = info.coverImage?.extraLarge || info.coverImage?.large || '';
+    const posterUrl = state.posterPortrait;
     if (posterUrl) {
         posterImg.src = getProxyUrl(posterUrl);
         posterImg.onerror = () => { posterImg.src = posterUrl; posterImg.onerror = null; };
@@ -2383,6 +2384,7 @@ window.addEventListener('message', (e) => {
     if (d.type === 'player-progress') {
         savePlaying(d.current, d.duration);
         if (d.current > 30) markWatched(state.currentEp);
+        if (d.current > 0 && state.currentEp) saveContinue();
         return;
     }
     if (d.type === 'player-nav') {
@@ -2534,6 +2536,13 @@ console.log('Watch page initialized. Slug:', state.slug);
 
     document.addEventListener('click', (e) => {
         if (menu && !menu.contains(e.target) && toggler && !toggler.contains(e.target)) closeMenu();
+        // Close the live-search popup when tapping anywhere outside the
+        // search box or its toggler (on mobile, also hide the bar).
+        const inSearch = search && search.contains(e.target);
+        const inToggler = searchToggler && searchToggler.contains(e.target);
+        if (!inSearch && !inToggler && search && search.classList.contains('search-open')) {
+            search.classList.remove('search-open', 'show');
+        }
     });
 
     // ============ LIVE SEARCH (miruro-style) ============
@@ -2542,6 +2551,16 @@ console.log('Watch page initialized. Slug:', state.slug);
     let searchSeq = 0;
     let searchItems = [];
     let searchIdx = -1;
+
+    function closeSearchBar() {
+        if (!search) return;
+        search.classList.remove('search-open');
+        if (window.innerWidth < 1200) search.classList.remove('show');
+        searchItems = [];
+        searchIdx = -1;
+        const popup = search.querySelector('.search-popup');
+        if (popup && popup.querySelector('.items')) popup.querySelector('.items').innerHTML = '';
+    }
 
     function renderSearch() {
         const popup = search ? search.querySelector('.search-popup') : null;
@@ -2633,14 +2652,13 @@ console.log('Watch page initialized. Slug:', state.slug);
                 e.preventDefault();
                 const link = search.querySelector('.item.active');
                 if (link) window.location.href = link.href;
+            } else if (e.key === 'Escape') {
+                closeSearchBar();
             }
         });
 
         inp.addEventListener('focus', () => {
             if (searchItems.length) search.classList.add('search-open');
-        });
-        inp.addEventListener('blur', () => {
-            setTimeout(() => search.classList.remove('search-open'), 150);
         });
 
         if (clearBtn) clearBtn.addEventListener('click', () => {
@@ -2677,6 +2695,8 @@ console.log('Watch page initialized. Slug:', state.slug);
             if (show) {
                 const inp = search.querySelector('input');
                 if (inp) inp.focus();
+            } else {
+                search.classList.remove('search-open');
             }
         });
     }

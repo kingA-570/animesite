@@ -1,0 +1,45 @@
+# Fly.io deployment config
+# Docs: https://fly.io/docs/reference/configuration/
+
+app = 'animesite'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '3000'
+  PYTHON = 'python3'
+  NODE_ENV = 'production'
+  # --experimental-sqlite no longer needed — DB removed, all data in browser localStorage
+  NODE_OPTIONS = '--max-old-space-size=192 --max-semi-space-size=16'
+  # Uncomment to require a token:
+  # ACCESS_TOKEN = 'change-me-to-a-strong-random-string'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  grace_period = '10s'
+  interval = '30s'
+  method = 'GET'
+  timeout = '5s'
+  path = '/health'
+
+# No persistent volume needed — all data stored in browser localStorage
+
+# VM sizing — the free tier (shared-cpu-1x, 256MB) may be tight with
+# Python + Chromium + Node.js running together. Upgrade if you see OOMs.
+# [vm]
+#   cpu_kind = 'shared'
+#   cpus = 1
+#   memory_mb = 512
