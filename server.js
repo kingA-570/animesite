@@ -1604,12 +1604,28 @@ async function youtubeSearch(query) {
 // avoids re-fetching 50 full Media objects on each page load.
 let anilistHomeCache = null;
 let anilistHomeCacheAt = 0;
+let anilistHomeInFlight = null;
 const ANILIST_HOME_TTL = 5 * 60 * 1000;
 
 async function anilistHomeFeed() {
   if (anilistHomeCache && Date.now() - anilistHomeCacheAt < ANILIST_HOME_TTL) {
     return anilistHomeCache;
   }
+  // Dedupe concurrent cold fetches (multiple visitors hitting the page at once)
+  // so they all share one AniList round-trip instead of each firing their own.
+  if (anilistHomeInFlight) return anilistHomeInFlight;
+  anilistHomeInFlight = (async () => {
+    try {
+      const media = await doAnilistHomeFetch();
+      return media;
+    } finally {
+      anilistHomeInFlight = null;
+    }
+  })();
+  return anilistHomeInFlight;
+}
+
+async function doAnilistHomeFetch() {
   const gql = `query ($page: Int, $perPage: Int) {
     Page(page: $page, perPage: $perPage) {
       media(
@@ -1644,7 +1660,7 @@ async function anilistHomeFeed() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ query: gql, variables: { page: 1, perPage: 50 } }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(8000),
   });
   if (response.status !== 200) throw new Error(`AniList home fetch failed (${response.status})`);
   const json = await response.json();

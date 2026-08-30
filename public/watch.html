@@ -998,7 +998,7 @@
                                 <i></i>
                             </div>
                             <div class="logo">
-                                <a href="/home">
+                                <a href="/">
                                     <img src='img/logo.webp' alt='AnimeVerse'/>
                                 </a>
                             </div>
@@ -1516,20 +1516,21 @@ if (anilistIdParam) {
     state.slug = '';
     pageTitle.textContent = 'Loading anime...';
     (async () => {
-        try {
-            const resp = await fetch(`/api/anilist/info?anilistId=${encodeURIComponent(anilistIdParam)}`);
-            const data = await resp.json();
-            if (data.resolved) {
-                applyInfo(data.resolved);
-                if (data.resolved.title) {
-                    document.title = data.resolved.title + ' - AnimeVerse';
-                    pageTitle.textContent = data.resolved.title;
+        // Fetch info and episodes in parallel — they're independent, so loading
+        // them concurrently cuts the perceived wait time roughly in half.
+        const infoP = fetch(`/api/anilist/info?anilistId=${encodeURIComponent(anilistIdParam)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.resolved) {
+                    applyInfo(data.resolved);
+                    if (data.resolved.title) {
+                        document.title = data.resolved.title + ' - AnimeVerse';
+                        pageTitle.textContent = data.resolved.title;
+                    }
                 }
-            }
-        } catch (e) {
-            console.error('anilist info failed:', e);
-        }
-        await loadEpisodes();
+            })
+            .catch(e => console.error('anilist info failed:', e));
+        await Promise.all([infoP, loadEpisodes()]);
     })();
 } else if (!state.slug) {
     pageTitle.textContent = 'No anime specified';

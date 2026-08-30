@@ -930,7 +930,7 @@
                                 <i></i>
                             </div>
                             <div class="logo">
-                                <a href="/home">
+                                <a href="/">
                                     <img src='img/logo.webp' alt='AnimeVerse'/>
                                 </a>
                             </div>
@@ -3060,20 +3060,26 @@
                             if (r.anilistId) q.set('anilistId', r.anilistId);
                             q.set('ep', r.ep);
                             const posterSrc = r.poster ? r.poster.replace(/"/g, '&quot;') : '';
+                            const escTitle = String(r.title || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            const escKey = String(r.key || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            const width = Math.min(100, Math.max(5, r.percent || 5));
                             return `
-                                <a class="continue-watching-card" href="watch.html?${q.toString()}">
-                                    <div class="cw-poster">
-                                        ${posterSrc ? `<img src="${posterSrc}" alt="" loading="lazy">` : ''}
+                                <a class="continue-watching-card" href="watch.html?${q.toString()}" title="${escTitle}">
+                                    <div class="cw-media">
+                                        ${posterSrc ? `<img src="${posterSrc}" alt="${escTitle}" loading="lazy" onerror="this.style.display='none'">` : ''}
+                                        <span class="cw-play"><i class="fa-solid fa-play"></i></span>
                                         <span class="cw-ep-badge">EP ${r.ep}</span>
                                         <button class="cw-remove" type="button"
-                                                data-key="${r.key.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
-                                                title="Remove" aria-label="Remove ${r.title}">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                data-key="${escKey}"
+                                                title="Remove" aria-label="Remove ${escTitle}">
+                                            <i class="fa-solid fa-xmark"></i>
                                         </button>
-                                        <div class="cw-progress"><div class="cw-progress-bar" style="width:${r.percent}%"></div></div>
+                                        <div class="cw-info">
+                                            <div class="cw-title">${escTitle}</div>
+                                            <div class="cw-meta"><i class="fa-solid fa-play" style="font-size:.5rem;margin-right:4px"></i>Episode ${r.ep}</div>
+                                        </div>
+                                        <div class="cw-progress"><div class="cw-progress-bar" style="width:${width}%"></div></div>
                                     </div>
-                                    <div class="cw-title">${r.title}</div>
-                                    <div class="cw-meta">Ep ${r.ep}${r.percent ? ' · ' + r.percent + '%' : ''}</div>
                                 </a>`;
                         }).join('');
                     };
@@ -3193,16 +3199,21 @@
             // ============ DYNAMIC HOMEPAGE CONTENT ============
             // Fetches real anime data from the backend and replaces static content
             (async function loadHomeContent() {
-                try {
-                    const res = await fetch('/api/home/recently-released');
-                    if (!res.ok) throw new Error('API returned ' + res.status);
-                    const data = await res.json();
-                    if (!data) throw new Error('No data');
+                // Client-side cache so trending / tables render instantly on repeat visits
+                const CACHE_KEY = 'animekai:homeFeed';
+                const CACHE_TTL = 10 * 60 * 1000;
+                const readCache = () => {
+                    try {
+                        const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+                        return (c && c.items && Date.now() - c.ts < CACHE_TTL) ? c.items : null;
+                    } catch (e) { return null; }
+                };
+                const writeCache = (items) => {
+                    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (e) {}
+                };
 
-                    // AniList is the only feed source now
-                    const items = data.anilist || [];
-
-                    if (!items.length) return; // keep static fallback
+                function render(items) {
+                    if (!items || !items.length) return; // keep static fallback
 
                     // Expose for the Recently Updated tabs/paging controller
                     window.__homeItems = items;
@@ -3333,9 +3344,22 @@
                             } catch(e) { /* swiper init may fail silently */ }
                         }
                     }
+                } // end render()
 
+                // Render from cache instantly, then refresh in the background.
+                const cached = readCache();
+                if (cached) render(cached);
+
+                try {
+                    const res = await fetch('/api/home/recently-released');
+                    if (!res.ok) throw new Error('API returned ' + res.status);
+                    const data = await res.json();
+                    if (!data) throw new Error('No data');
+                    const fresh = data.anilist || [];
+                    if (fresh.length) { render(fresh); writeCache(fresh); }
+                    else if (cached) { writeCache(cached); }
                 } catch (err) {
-                    console.warn('[HomeLoader] Could not load dynamic content, using static fallback:', err.message);
+                    console.warn('[HomeLoader] Could not load dynamic content, using cache/static fallback:', err.message);
                 }
             })();
         </script>

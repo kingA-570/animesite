@@ -146,23 +146,6 @@
             }
             .land-row .row-head a:hover { text-decoration: underline; }
 
-            .hscroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
-            .hscroll::-webkit-scrollbar { height: 6px; }
-            .hscroll::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 4px; }
-
-            .cw-card {
-                flex: 0 0 150px; text-decoration: none; color: var(--c-text);
-            }
-            .cw-card .poster { position: relative; aspect-ratio: 2/3; border-radius: 10px; overflow: hidden; background: var(--c-surface-3); }
-            .cw-card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
-            .cw-card .ep-badge {
-                position: absolute; bottom: 6px; left: 6px; font-size: .68rem; font-weight: 700;
-                background: var(--c-accent); color: #fff; padding: 2px 7px; border-radius: 5px;
-            }
-            .cw-card .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,.4); }
-            .cw-card .progress-bar { height: 100%; background: var(--c-accent); border-radius: 0 2px 2px 0; }
-            .cw-card .title { margin-top: 8px; font-weight: 700; font-size: .88rem; color: var(--c-text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .cw-card .meta { font-size: .76rem; color: var(--c-text-3); }
             .row-empty { color: var(--c-text-3); font-size: .95rem; }
 
             /* ===== Footer ===== */
@@ -178,7 +161,6 @@
                 .land-header { padding: 12px 16px; }
                 .land-nav a { display: none; }
                 .quick { grid-template-columns: repeat(2, 1fr); }
-                .cw-card { flex: 0 0 120px; }
             }
         </style>
     </head>
@@ -189,7 +171,7 @@
         <div class="bg-video-overlay"></div>
 
         <header class="land-header">
-            <a class="land-logo" href="/home">
+            <a class="land-logo" href="/">
                 <img src="img/TITLEBAR.PNG" alt="AnimeVerse" onerror="this.style.display='none'"/>
                 <span>Anime<b>Verse</b></span>
             </a>
@@ -230,17 +212,11 @@
             <section class="land-content">
                 <div class="land-row">
                     <div class="row-head">
-                        <h2><i class="fa-solid fa-clock-rotate-left"></i> Continue Watching</h2>
-                        <a href="/home">View all</a>
-                    </div>
-                    <div class="hscroll" id="cw-list"></div>
-                </div>
-                <div class="land-row">
-                    <div class="row-head">
                         <h2><i class="fa-solid fa-fire"></i> Start Exploring</h2>
                     </div>
-                    <p class="row-empty">Head to the <a href="/home" style="color:var(--c-accent)">homepage</a>
-                        for trending anime, the latest releases, and personalized recommendations.</p>
+                    <p class="row-empty">Browse trending anime, the latest releases, and the full catalog on the
+                        <a href="/home" style="color:var(--c-accent)">homepage</a>, or jump straight into the
+                        <a href="/catalog" style="color:var(--c-accent)">catalog</a>.</p>
                 </div>
             </section>
         </main>
@@ -337,51 +313,6 @@
             document.addEventListener('click', (e) => {
                 if (!searchBox.contains(e.target)) popup.classList.remove('open');
             });
-
-            // ===== Continue Watching =====
-            const read = (key) => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (err) { return {}; } };
-            const cwEl = document.getElementById('cw-list');
-            function renderCW() {
-                const cont = read('animekai:continue');
-                const playing = read('user.playing');
-                const rows = Object.keys(cont).map(key => {
-                    const c = cont[key] || {};
-                    const p = playing[key] || [c.epNum || c.ep || 1, 0, 0];
-                    const [ep, current, duration] = Array.isArray(p) ? p : [c.epNum || c.ep || 1, 0, 0];
-                    const percent = Number(duration) ? Math.min(99, Math.round((Number(current || 0) / Number(duration)) * 100)) : 0;
-                    const q = new URLSearchParams();
-                    if (c.slug) q.set('slug', c.slug);
-                    if (c.anilistId) q.set('anilistId', c.anilistId);
-                    q.set('ep', ep);
-                    return {
-                        key: key,
-                        ts: c.ts || 0,
-                        href: '/watch.html?' + q.toString(),
-                        title: c.title || key.replace(/[-_]+/g, ' ').replace(/\b\w/g, x => x.toUpperCase()),
-                        poster: c.poster || '',
-                        ep: ep,
-                        percent: percent,
-                    };
-                }).sort((a, b) => b.ts - a.ts).slice(0, 8);
-
-                if (!rows.length) {
-                    cwEl.innerHTML = '<p class="row-empty">Your watch progress will show up here.</p>';
-                    return;
-                }
-                cwEl.innerHTML = rows.map(r =>
-                    '<a class="cw-card" href="' + r.href + '">' +
-                        '<div class="poster">' + (r.poster ? '<img src="' + r.poster.replace(/"/g, '&quot;') + '" alt="" loading="lazy">' : '') +
-                            '<span class="ep-badge">EP ' + r.ep + '</span>' +
-                            (r.percent ? '<div class="progress"><div class="progress-bar" style="width:' + r.percent + '%"></div></div>' : '') +
-                        '</div>' +
-                        '<div class="title">' + r.title + '</div>' +
-                        '<div class="meta">Ep ' + r.ep + (r.percent ? ' · ' + r.percent + '%' : '') + '</div>' +
-                    '</a>'
-                ).join('');
-            }
-            renderCW();
-            window.addEventListener('animekai:continue-updated', renderCW);
-            window.addEventListener('storage', (e) => { if (e.key === 'animekai:continue' || e.key === 'user.playing') renderCW(); });
         })();
         </script>
     </body>
