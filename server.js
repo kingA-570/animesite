@@ -950,8 +950,8 @@ setInterval(() => {
 // ========================
 const CACHE_MAX_AGE = {
   '.html': 'no-cache, no-store, must-revalidate, max-age=0',
-  '.css': '86400',
-  '.js': '86400',
+  '.css': '0',
+  '.js': '0',
   '.png': '604800',
   '.jpg': '604800',
   '.jpeg': '604800',
