@@ -981,8 +981,8 @@ async function serveStatic(reqUrl, res, req) {
   try {
     let pathname = reqUrl.pathname;
     if (pathname === '/') {
-      // Default site entry point should resolve to the content homepage.
-      pathname = '/home.html';
+      // Default site entry point should resolve to the landing page.
+      pathname = '/landing.html';
     }
     if (pathname === '/home') {
       // Legacy search redirect (?keyword=... → /search?q=...)
