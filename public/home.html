@@ -485,6 +485,12 @@
             }
             body, body.home { background: transparent !important; }
             header .logo { height: 2.6rem; }
+            @media (max-width: 767.98px) {
+                header .logo { height: 2rem; }
+            }
+            @media (max-width: 575.98px) {
+                header .logo { height: 1.8rem; }
+            }
             footer .logos .logo { height: 3rem; }
             header { background: rgba(16,29,46,0.88) !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
             footer, footer .container { background: rgba(7,12,19,0.85) !important; }
@@ -1003,7 +1009,7 @@
                                 <i></i>
                             </div>
                             <div class="logo">
-                                <a href="/" class="brand-logo">
+                                <a href="/home" class="brand-logo">
                                     <span class="brand-txt">Anime</span><span class="brand-accent">Verse</span>
                                 </a>
                             </div>
@@ -3086,6 +3092,7 @@
                 // Continue Watching widget (localStorage-backed)
                 (function () {
                     const list = document.getElementById('continue-watching-home-list');
+                    const showAllBtn = document.getElementById('cwShowAllBtn');
                     if (!list) return;
 
                     const read = (key) => {
@@ -3125,7 +3132,6 @@
 
                         // Show All / Show Less toggle
                         const CW_MAX = 5;
-                        const showAllBtn = document.getElementById('cwShowAllBtn');
                         if (!list._cwExpanded) list._cwExpanded = false;
                         const visibleRows = list._cwExpanded ? rows : rows.slice(0, CW_MAX);
                         if (showAllBtn) {
