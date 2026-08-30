@@ -51,6 +51,71 @@
             header #menu-toggler { margin-right: 10px; }
             header .logo { margin-right: 2rem; }
             header #quick-menu { width: auto; gap: 12px; }
+
+            /* Miruro-style compact nav row to the right of search */
+            header .wrapper #quick-menu {
+                gap: 4px;
+                align-items: center;
+                margin-left: 0;
+            }
+            header #quick-menu > a,
+            header #quick-menu > div {
+                margin: 0 !important;
+            }
+            header .main-menu {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--c-text);
+                padding: 7px 11px;
+                border-radius: 8px;
+                line-height: 1;
+                white-space: nowrap;
+                transition: color 0.15s, background 0.15s;
+            }
+            header .main-menu .icon,
+            header .main-menu i {
+                margin: 0;
+                font-size: 1.05rem;
+                color: var(--c-text-2);
+            }
+            header .main-menu:hover {
+                color: var(--c-accent);
+                background: var(--c-hover);
+            }
+            header .main-menu:hover .icon,
+            header .main-menu:hover i { color: var(--c-accent); }
+            header .main-menu span { line-height: 1; }
+            /* EN/JP pill + theme toggle aligned to the row */
+            header #quick-menu #lang {
+                display: flex;
+                align-items: center;
+                margin: 0 2px 0 6px;
+            }
+            header #quick-menu .switch > span {
+                height: 24px;
+                line-height: 24px;
+                min-width: 2.1rem;
+                font-size: 0.8rem;
+                border-radius: 6px;
+                margin: 0 2px;
+                color: var(--c-text-2);
+            }
+            header #quick-menu .switch > span.active { color: var(--c-surface); background: var(--c-accent); }
+            header #quick-menu #theme-toggle { margin-left: 4px; }
+            header #quick-menu .theme-toggle {
+                margin-right: 0;
+                margin-left: 4px;
+            }
+            header #quick-menu .theme-toggle-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 0.95rem;
+            }
+            header .wrapper .end { padding-left: 8px; }
+
             header #user .placeholder {
                 width: 2.4rem;
                 height: 2.4rem;
@@ -930,8 +995,8 @@
                                 <i></i>
                             </div>
                             <div class="logo">
-                                <a href="/">
-                                    <img src='img/logo.webp' alt='AnimeVerse'/>
+                                <a href="/" class="brand-logo">
+                                    <span class="brand-txt">Anime</span><span class="brand-accent">Verse</span>
                                 </a>
                             </div>
                             <div id="search" class="new-search">

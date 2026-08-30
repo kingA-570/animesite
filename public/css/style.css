@@ -9773,6 +9773,33 @@ span.rating {
   object-fit: contain;
   max-width: 100%;
 }
+/* Text logo used across headers in place of an image (matches landing page) */
+a.brand-logo {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+a.brand-logo .brand-txt {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--c-text-bright);
+}
+a.brand-logo .brand-accent {
+  color: var(--c-accent);
+  font-weight: 800;
+  font-size: 2rem;
+}
+@media (max-width: 575.98px) {
+  a.brand-logo .brand-txt,
+  a.brand-logo .brand-accent {
+    font-size: 1.6rem;
+  }
+}
+
 header {
   width: 100%;
   z-index: 50;
