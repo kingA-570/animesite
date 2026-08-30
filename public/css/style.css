@@ -9814,16 +9814,10 @@ a.brand-logo .brand-accent {
   font-weight: 800;
   font-size: 2rem;
 }
-@media (max-width: 767.98px) {
-  a.brand-logo .brand-txt,
-  a.brand-logo .brand-accent {
-    font-size: 1.45rem;
-  }
-}
 @media (max-width: 575.98px) {
   a.brand-logo .brand-txt,
   a.brand-logo .brand-accent {
-    font-size: 1.3rem;
+    font-size: 1.6rem;
   }
 }
 
@@ -12236,10 +12230,10 @@ footer .links .body ul li a:hover {
     padding: 9px 20px;
   }
   header #menu-toggler {
-    margin-right: 12px;
+    margin-right: 15px;
   }
   header .logo {
-    height: 1.8rem;
+    height: 2.2rem;
   }
   footer {
     text-align: center;
