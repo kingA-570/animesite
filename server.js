@@ -74,6 +74,14 @@ const MIME_TYPES = {
 // ========================
 const rateLimitStore = new Map();
 
+function pruneCache(map, maxEntries) {
+  if (!map || !(map instanceof Map) || map.size <= maxEntries) return;
+  const overflow = map.size - maxEntries;
+  for (const [key] of [...map.entries()].slice(0, overflow)) {
+    map.delete(key);
+  }
+}
+
 function rateLimit(ip) {
   const now = Date.now();
   if (!rateLimitStore.has(ip)) {
@@ -411,6 +419,7 @@ async function miruroFetchEpisodes(anilistId) {
   });
   const result = deepTranslateId(data);
   miruroEpisodesCache.set(key, result);
+  pruneCache(miruroEpisodesCache, 128);
   setTimeout(() => miruroEpisodesCache.delete(key), MIRURO_EPISODES_TTL);
   return result;
 }
@@ -512,6 +521,7 @@ async function miruroFetchAllEmbeds(anilistId, episode) {
 
   const result = { embeds };
   miruroEmbedsCache.set(cacheKey, result);
+  pruneCache(miruroEmbedsCache, 64);
   setTimeout(() => miruroEmbedsCache.delete(cacheKey), 60 * 60 * 1000);
   return result;
 }
@@ -642,6 +652,7 @@ async function anilistSearchFull(queryTitle, perPage = 48) {
   const json = await response.json();
   const media = (json?.data?.Page?.media) || [];
   anilistSearchCache.set(cacheKey, media);
+  pruneCache(anilistSearchCache, 256);
   setTimeout(() => anilistSearchCache.delete(cacheKey), ANILIST_SEARCH_TTL);
   return media;
 }
@@ -861,6 +872,7 @@ async function anilistBrowse({ status, genre, format, letter = '', sort = 'score
   }
 
   browseCache.set(cacheKey, media);
+  pruneCache(browseCache, 128);
   setTimeout(() => browseCache.delete(cacheKey), BROWSE_TTL);
   return media;
 }
@@ -933,6 +945,7 @@ async function resolveAnilistId(slug) {
   }
 
   anilistResolveCache.set(slug, best);
+  pruneCache(anilistResolveCache, 256);
   return best;
 }
 
@@ -968,8 +981,8 @@ async function serveStatic(reqUrl, res, req) {
   try {
     let pathname = reqUrl.pathname;
     if (pathname === '/') {
-      // Landing page (distinct from the content homepage at /home)
-      pathname = '/landing.html';
+      // Default site entry point should resolve to the content homepage.
+      pathname = '/home.html';
     }
     if (pathname === '/home') {
       // Legacy search redirect (?keyword=... → /search?q=...)
@@ -1331,6 +1344,7 @@ async function megapStream(anilistId, episode, lang, source = 'ani') {
         via: candidate.via,
       };
       megapStreamCache.set(cacheKey, result);
+      pruneCache(megapStreamCache, 128);
       setTimeout(() => megapStreamCache.delete(cacheKey), MEGAP_STREAM_TTL);
       return result;
     } catch { /* try the next mapping */ }
@@ -1473,6 +1487,7 @@ async function embedToHls(embedUrl) {
   }
 
   embedStreamCache.set(embedUrl, result);
+  pruneCache(embedStreamCache, 128);
   setTimeout(() => embedStreamCache.delete(embedUrl), 10 * 60 * 1000);
   return result;
 }
@@ -1537,6 +1552,7 @@ async function apiplayerStream(tmdbId, season, episode) {
   } catch { /* keep embedUrl fallback */ }
 
   apiplayerCache.set(cacheKey, result);
+  pruneCache(apiplayerCache, 128);
   setTimeout(() => apiplayerCache.delete(cacheKey), 5 * 60 * 1000);
   return result;
 }
@@ -1591,6 +1607,7 @@ async function youtubeSearch(query) {
   const html = await response.text();
   const vids = youtubeExtractVideos(html);
   youtubeCache.set(cacheKey, vids);
+  pruneCache(youtubeCache, 128);
   setTimeout(() => youtubeCache.delete(cacheKey), 10 * 60 * 1000);
   return vids;
 }
