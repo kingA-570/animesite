@@ -9786,7 +9786,8 @@ span.rating {
 .logo {
   display: flex;
   align-items: center;
-  height: 2.6rem;
+  display: block;
+  height: 2.7rem;
 }
 .logo img {
   height: 100%;
@@ -9814,16 +9815,10 @@ a.brand-logo .brand-accent {
   font-weight: 800;
   font-size: 2rem;
 }
-@media (max-width: 767.98px) {
-  a.brand-logo .brand-txt,
-  a.brand-logo .brand-accent {
-    font-size: 1.45rem;
-  }
-}
 @media (max-width: 575.98px) {
   a.brand-logo .brand-txt,
   a.brand-logo .brand-accent {
-    font-size: 1.3rem;
+    font-size: 1.6rem;
   }
 }
 
@@ -10085,7 +10080,7 @@ header #menu > ul > li > ul > li > a:hover span {
 header .logo {
   margin-left: 0;
   margin-right: 2rem;
-  height: 2.6rem;
+  height: 3.2rem;
 }
 header .logo a {
   display: block;
@@ -12033,17 +12028,8 @@ footer .links .body ul li a:hover {
     display: none !important;
   }
   header #menu-toggler {
-    padding: 6px;
-    margin-right: 14px;
-    width: 36px;
-    height: 36px;
-  }
-  header #menu-toggler i {
-    width: 30px;
-    height: 3.5px;
-  }
-  header .logo {
-    height: 2.2rem;
+    padding: 0;
+    margin-right: 20px;
   }
   header #menu {
     height: 54px;
@@ -12236,10 +12222,10 @@ footer .links .body ul li a:hover {
     padding: 9px 20px;
   }
   header #menu-toggler {
-    margin-right: 12px;
+    margin-right: 15px;
   }
   header .logo {
-    height: 1.8rem;
+    height: 2.3rem;
   }
   footer {
     text-align: center;
