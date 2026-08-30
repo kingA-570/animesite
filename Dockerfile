@@ -37,7 +37,11 @@ ENV PORT=3000 \
     NODE_ENV=production \
     # Keep the V8 heap bounded so the server shares the 512MB free-tier RAM
     # with the Python/Chromium sidecar instead of trying to grab it all.
-  NODE_OPTIONS="--max-old-space-size=192 --max-semi-space-size=16"
+    NODE_OPTIONS="--max-old-space-size=160 --max-semi-space-size=16" \
+    # Prefer lightweight curl_cffi; only launch Chromium when curl gets blocked.
+    MIRURO_PREFER_BROWSER=0 \
+    MIRURO_BROWSER_MAX_REQUESTS=25 \
+    MIRURO_BROWSER_MAX_LIFETIME=300
 # Uncomment to require a token before anyone can use the site:
 # ENV ACCESS_TOKEN=change-me-to-a-strong-random-string
 

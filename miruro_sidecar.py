@@ -63,11 +63,17 @@ PORT = int(os.environ.get("MIRURO_SIDECAR_PORT", "8765"))
 PIPE_URL = os.environ.get("MIRURO_PIPE_URL", "https://www.miruro.to/api/secure/pipe")
 JWKS_URL = os.environ.get("MIRURO_JWKS_URL", "https://www.miruro.to/api/secure/jwks")
 
+# Transport preference. Chromium (Playwright) is far heavier than curl_cffi,
+# so on Render's free tier we default to curl_cffi first and only spin up
+# Chromium when curl_cffi fails Cloudflare (403). Set MIRURO_PREFER_BROWSER=1
+# to always use the browser.
+PREFER_BROWSER = os.environ.get("MIRURO_PREFER_BROWSER", "0") == "1"
+
 # A persistent headless Chromium grows memory over time (cached frames, V8
 # heaps) which quickly exhausts Render's free-tier RAM. Recycle the browser
 # after N requests or M seconds so memory stays flat.
-MAX_REQUESTS_PER_BROWSER = int(os.environ.get("MIRURO_BROWSER_MAX_REQUESTS", "40"))
-MAX_BROWSER_LIFETIME = int(os.environ.get("MIRURO_BROWSER_MAX_LIFETIME", "480"))
+MAX_REQUESTS_PER_BROWSER = int(os.environ.get("MIRURO_BROWSER_MAX_REQUESTS", "25"))
+MAX_BROWSER_LIFETIME = int(os.environ.get("MIRURO_BROWSER_MAX_LIFETIME", "300"))
 # Bound the job queue so a stuck page.evaluate can never grow the queue forever.
 MAX_QUEUE_SIZE = int(os.environ.get("MIRURO_BROWSER_MAX_QUEUE", "16"))
 # After this many consecutive browser errors, give up on the browser and fall
@@ -97,8 +103,13 @@ BROWSER_ARGS = [
     "--disable-hang-monitor",
     "--no-first-run",
     "--no-default-browser-check",
-    "--disable-features=Translate,BackForwardCache",
-    "--js-flags=--max-old-space-size=160",
+    "--disable-features=Translate,BackForwardCache,site-per-process",
+    "--renderer-ignore-max-count",
+    "--renderer-process-limit=2",
+    "--memory-pressure-off",
+    "--js-flags=--max-old-space-size=140",
+    "--disable-software-rasterizer",
+    "--no-zygote",
 ]
 
 HEADERS = {
@@ -252,11 +263,32 @@ def _browser_worker():
 def _start_browser_worker():
     if not HAS_PLAYWRIGHT or _browser_state["started"]:
         return
+    _browser_state["started"] = True
     t = threading.Thread(target=_browser_worker, daemon=True)
     t.start()
 
 
+def _lazy_start_browser():
+    if not HAS_PLAYWRIGHT or _browser_state["browser_failed"]:
+        return
+    # Launch Chromium only on first real use, not at boot, so an idle
+    # website stays well under Render's free-tier RAM. If the launch itself
+    # OOMs, mark it failed once and fall back to curl_cffi for good.
+    try:
+        if not _browser_state["started"]:
+            _start_browser_worker()
+            for _ in range(60):
+                if _browser_state["init_done"] or _browser_state["browser_failed"]:
+                    break
+                time.sleep(0.5)
+    except Exception as exc:
+        _browser_state["browser_failed"] = True
+        _browser_state["error"] = f"lazy browser start failed: {exc}"
+        print(f"[miruro_sidecar] {_browser_state['error']}; using curl_cffi", flush=True)
+
+
 def browser_fetch(url):
+    _lazy_start_browser()
     if _browser_state["browser_failed"]:
         raise RuntimeError(_browser_state["error"] or "browser unavailable")
     # Wait briefly for Chromium to finish launching on cold start.
@@ -291,8 +323,28 @@ def curl_fetch(url):
     }
 
 
+def fetch_any(url):
+    """Prefer the lightweight curl_cffi transport; fall back to Chromium only
+    when curl_cffi is missing or gets blocked by Cloudflare (403). Keeping
+    Chromium cold unless absolutely needed keeps Render's free tier under RAM."""
+    if PREFER_BROWSER and transport_available():
+        return browser_fetch(url)
+    if HAS_CURL:
+        try:
+            res = curl_fetch(url)
+            if res.get("status") and res.get("status") != 403:
+                return res
+        except Exception:
+            pass
+    if transport_available():
+        return browser_fetch(url)
+    if HAS_CURL:
+        raise RuntimeError("curl_cffi blocked by Cloudflare and browser unavailable")
+    raise RuntimeError("no transport available")
+
+
 def transport_available():
-    return HAS_PLAYWRIGHT and not _browser_state["browser_failed"]
+    return bool(HAS_PLAYWRIGHT and not _browser_state["browser_failed"])
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -327,10 +379,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_jwks(self):
         try:
-            if transport_available():
-                res = browser_fetch(JWKS_URL)
-            else:
-                res = curl_fetch(JWKS_URL)
+            res = fetch_any(JWKS_URL)
             version = ""
             if res.get("status") == 200:
                 try:
@@ -365,10 +414,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "missing e"})
                 return
             url = f"{PIPE_URL}?e={e}"
-            if transport_available():
-                res = browser_fetch(url)
-            else:
-                res = curl_fetch(url)
+            res = fetch_any(url)
             self._json(200, {
                 "status": res.get("status"),
                 "body": res.get("body") or "",
@@ -379,11 +425,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    _start_browser_worker()
+    # Browser (Chromium) is launched lazily on first real request, see
+    # _lazy_start_browser(), so an idle instance doesn't hold ~300MB of RAM.
+    # The Python sidecar itself starts lean (curl_cffi only).
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(
         f"miruro_sidecar listening on 127.0.0.1:{PORT} "
-        f"(transport={'browser(playwright)' if transport_available() else 'curl_cffi'}, "
+        f"(transport={'browser(playwright, lazy)' if HAS_PLAYWRIGHT else 'curl_cffi'}, "
         f"recycle every {MAX_REQUESTS_PER_BROWSER} reqs / {MAX_BROWSER_LIFETIME}s)",
         flush=True,
     )

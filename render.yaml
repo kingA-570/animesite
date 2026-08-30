@@ -14,7 +14,15 @@ services:
       - key: PYTHON
         value: python3
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=192 --max-semi-space-size=16 --experimental-sqlite"
+        value: "--max-old-space-size=160 --max-semi-space-size=16 --experimental-sqlite"
+      # Anti-OOM tuning for Render's 512MB free tier:
+      #  - Try lightweight curl_cffi first; only spin up Chromium if blocked.
+      - key: MIRURO_PREFER_BROWSER
+        value: "0"
+      - key: MIRURO_BROWSER_MAX_REQUESTS
+        value: "25"
+      - key: MIRURO_BROWSER_MAX_LIFETIME
+        value: "300"
       # Uncomment to require a token before anyone can use the site:
       # - key: ACCESS_TOKEN
       #   generateValue: true
