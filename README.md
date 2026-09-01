@@ -1,4 +1,4 @@
-# animesite
+# AnimeVerse
 
 A lightweight anime streaming web app with a Node.js backend and static frontend pages.
 
