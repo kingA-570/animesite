@@ -1293,6 +1293,28 @@ const MEGAP_PAGE_REFERER = 'https://anikototv.to/';
 const megapStreamCache = new Map();
 const MEGAP_STREAM_TTL = 10 * 60 * 1000;
 
+// Since late 2025, megaplay.buzz no longer returns `sources.file` from
+// /stream/getSourcesNew — it returns an encrypted `enc` blob instead. It is
+// AES-256-CBC encrypted with the same key/iv the player's SegmentDecrypt uses
+// for its /segment/{token} tokens ("i?LMTAx0Q6,:}50U" zero-padded to 32 bytes,
+// iv "W0;27ToaUpl_P%'c", base64url ciphertext). Decrypts to a JSON object like
+// {"file":"https://.../master.m3u8"}.
+const MEGAP_ENC_KEY = Buffer.alloc(32);
+Buffer.from('i?LMTAx0Q6,:}50U', 'utf8').copy(MEGAP_ENC_KEY);
+const MEGAP_ENC_IV = Buffer.from('W0;27ToaUpl_P%\'c', 'utf8');
+
+function megapDecryptEnc(enc) {
+  const b64 = String(enc).replace(/-/g, '+').replace(/_/g, '/');
+  const cipher = Buffer.from(b64 + '='.repeat((4 - b64.length % 4) % 4), 'base64');
+  try {
+    const dec = crypto.createDecipheriv('aes-256-cbc', MEGAP_ENC_KEY, MEGAP_ENC_IV);
+    const out = Buffer.concat([dec.update(cipher), dec.final()]);
+    const parsed = JSON.parse(out.toString('utf8'));
+    if (parsed?.file) return parsed;
+  } catch { /* not decryptable */ }
+  return null;
+}
+
 async function megapStream(anilistId, episode, lang, source = 'ani') {
   // AniList-independent mappings: /stream/ani/{anilistId} and /stream/mal/{malId}.
   const cacheKey = `${anilistId}:${episode}:${lang}:${source}`;
@@ -1340,9 +1362,11 @@ async function megapStream(anilistId, episode, lang, source = 'ani') {
       });
       if (!srcResp.ok) continue;
       const data = await srcResp.json();
-      if (!data?.sources?.file) continue;
+      const decoded = data?.enc ? megapDecryptEnc(data.enc) : null;
+      const file = data?.sources?.file || decoded?.file;
+      if (!file) continue;
       const result = {
-        m3u8Url: data.sources.file,
+        m3u8Url: file,
         referer: MEGAP_REFERER,
         tracks: data.tracks || [],
         intro: data.intro || null,
@@ -1470,9 +1494,11 @@ async function embedToHls(embedUrl) {
     });
     if (!srcResp.ok) throw new Error(`embed sources returned ${srcResp.status}`);
     const data = await srcResp.json();
-    if (!data?.sources?.file) throw new Error('embed returned no stream file');
+    const decoded = data?.enc ? megapDecryptEnc(data.enc) : null;
+    const file = data?.sources?.file || decoded?.file;
+    if (!file) throw new Error('embed returned no stream file');
     result = {
-      m3u8Url: data.sources.file,
+      m3u8Url: file,
       referer,
       tracks: data.tracks || [],
       intro: data.intro || null,

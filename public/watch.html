@@ -160,46 +160,51 @@
         .w-synopsis::-webkit-scrollbar-thumb { background: #3b3f60; border-radius: 4px; }
 
         /* ============ Miruro-style Episode Panel ============ */
-        .panel.ep-panel { background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; padding: 0; overflow: hidden; }
-        .ep-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0.75rem 0.9rem; border-bottom: 1px solid rgba(159, 173, 189, 0.1); }
-        .ep-panel-head h2 { margin-bottom: 0; font-size: 1rem; font-weight: 700; color: #e8ecf4; display: flex; align-items: center; gap: 8px; }
-        .ep-panel-head h2 i { color: #b5a8ff; font-size: 0.85rem; }
-        .ep-count { font-size: 0.72rem; font-weight: 700; color: #9aa6bd; background: rgba(159, 173, 189, 0.08); border: 1px solid rgba(159, 173, 189, 0.1); padding: 2px 10px; border-radius: 999px; }
+        .panel.ep-panel { background: rgba(21, 31, 46, 0.9); border: 1px solid rgba(159, 173, 189, 0.12); border-radius: 0.5rem; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+        .ep-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0.7rem 0.85rem; border-bottom: 1px solid rgba(159, 173, 189, 0.08); }
+        .ep-panel-head h2 { margin-bottom: 0; font-size: 0.95rem; font-weight: 700; color: #e8ecf4; display: flex; align-items: center; gap: 8px; }
+        .ep-panel-head h2 i { color: var(--c-accent, #b5a8ff); font-size: 0.8rem; }
+        .ep-count { font-size: 0.72rem; font-weight: 600; color: #9aa6bd; background: rgba(159, 173, 189, 0.06); border: 1px solid rgba(159, 173, 189, 0.08); padding: 2px 10px; border-radius: 999px; }
 
-        .ep-toolbar { display: flex; gap: 0.5rem; padding: 0.45rem 0.6rem; background: rgba(21, 31, 46, 0.6); border-bottom: 1px solid rgba(159, 173, 189, 0.1); flex-wrap: wrap; }
-        .ep-range-select { flex-shrink: 0; padding: 0.5rem 0.6rem; background: #151f2e; color: #c8d0e0; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; font-size: 0.78rem; font-weight: 600; text-align: center; cursor: pointer; outline: none; max-width: 160px; }
-        .ep-filter { display: flex; flex: 1; align-items: center; gap: 0.4rem; padding: 0.5rem 0.6rem; background: #1b2536; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; min-width: 120px; transition: background-color .15s; }
+        .ep-toolbar { display: flex; gap: 0.5rem; padding: 0.45rem 0.6rem; background: rgba(21, 31, 46, 0.6); border-bottom: 1px solid rgba(159, 173, 189, 0.08); flex-wrap: wrap; }
+        .ep-range-select { flex-shrink: 0; padding: 0.5rem 0.6rem; background: #151f2e; color: #c8d0e0; border: 1px solid rgba(159, 173, 189, 0.12); border-radius: 0.45rem; font-size: 0.78rem; font-weight: 600; text-align: center; cursor: pointer; outline: none; max-width: 160px; }
+        .ep-filter { display: flex; flex: 1; align-items: center; gap: 0.4rem; padding: 0.5rem 0.6rem; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.12); border-radius: 0.45rem; min-width: 120px; transition: background-color .15s; }
         .ep-filter:focus-within { background: #243146; }
         .ep-filter i { font-size: 0.75rem; color: #7a86a0; }
         .ep-filter input { width: 100%; background: transparent; border: none; outline: none; color: #e8ecf4; font-size: 0.78rem; }
         .ep-filter input::placeholder { color: #7a86a0; }
-        .ep-tool-btn { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; color: #c8d0e0; cursor: pointer; background: #1b2536; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; transition: background-color .15s, color .15s; }
-        .ep-tool-btn:hover { background: #243146; }
+        .ep-tool-btn { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 2.15rem; height: 2.15rem; color: #c8d0e0; cursor: pointer; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.12); border-radius: 0.45rem; transition: background-color .15s, color .15s, border-color .15s; }
+        .ep-tool-btn:hover { background: #243146; color: #e8ecf4; }
         .ep-tool-btn:active { transform: scale(0.9); }
-        .ep-tool-btn.active { color: #fff; background: #595991; border-color: transparent; }
+        .ep-tool-btn.active { color: var(--c-accent-text, #fff); background: var(--c-accent, #595991); border-color: transparent; }
 
-        .ep-next-banner { display: flex; align-items: center; gap: 8px; margin: 0.5rem 0.6rem 0; padding: 0.5rem 0.7rem; background: rgba(181, 168, 255, 0.08); border: 1px solid rgba(181, 168, 255, 0.25); border-radius: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #cbbfff; }
-        .ep-next-banner i { color: #b5a8ff; }
-        .ep-next-banner .air-at { margin-left: auto; font-weight: 800; color: #b5a8ff; white-space: nowrap; }
+        .ep-next-banner { display: flex; align-items: center; gap: 8px; margin: 0.5rem 0.6rem 0; padding: 0.5rem 0.7rem; background: rgba(181, 168, 255, 0.08); border: 1px solid rgba(181, 168, 255, 0.25); border-radius: 0.45rem; font-size: 0.78rem; font-weight: 600; color: #cbbfff; }
+        .ep-next-banner i { color: var(--c-accent, #b5a8ff); }
+        .ep-next-banner .air-at { margin-left: auto; font-weight: 800; color: var(--c-accent, #b5a8ff); white-space: nowrap; }
 
-        /* Episode List */
-        .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr)); gap: 0.24rem; padding: 0.4rem; align-content: start; max-height: 420px; overflow-y: auto; }
+        /* Episode List (miruro: display:grid; gap:.24rem; align-content:start; padding:.4rem; overflow-y:auto) */
+        .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr)); gap: 0.24rem; padding: 0.4rem; align-content: start; max-height: 420px; overflow-y: auto; scrollbar-gutter: stable; }
         .episode-grid::-webkit-scrollbar { width: 5px; }
         .episode-grid::-webkit-scrollbar-track { background: #1b2536; border-radius: 4px; }
-        .episode-grid::-webkit-scrollbar-thumb { background: #595991; border-radius: 4px; }
+        .episode-grid::-webkit-scrollbar-thumb { background: var(--c-accent, #595991); border-radius: 4px; }
         .ep-btn {
             display: flex; align-items: center; justify-content: center; height: 2.5rem;
-            padding: 0.4rem 0; color: #9aa6bd; text-align: center; cursor: pointer;
-            background: #151f2e; border: none; border-radius: 0.5rem;
-            transform: scale(0.98); font-size: 0.78rem; font-weight: 700;
-            transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s;
+            padding: 0.35rem 0; color: #8a94ad; text-align: center; cursor: pointer;
+            background: rgba(159, 173, 189, 0.06); border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.45rem;
+            font-size: 0.8rem; font-weight: 700; line-height: 1;
+            transition: background-color .15s, border-color .15s, color .15s;
         }
-        .ep-btn:hover, .ep-btn:focus { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 5px rgba(0, 0, 0, 0.6); transform: scale(1); }
-        .ep-btn.active { background: #595991; color: #fff; }
+        .ep-btn:hover, .ep-btn:focus { color: #e8ecf4; background: rgba(181, 168, 255, 0.1); border-color: var(--c-accent, #595991); }
+        .ep-btn.active { background: var(--c-accent, #595991); color: var(--c-accent-text, #fff); border-color: transparent; }
         .ep-btn.loading { opacity: 0.5; pointer-events: none; }
         .ep-btn.watched:not(.active) { color: #3f8f5f; }
         .ep-btn.watched:not(.active)::after { content: '\2713'; position: absolute; top: 2px; right: 5px; font-size: 0.55rem; color: #22c55e; }
         .ep-btn { position: relative; }
+
+        /* Footer (miruro ._listFooter_llxst_33) */
+        .ep-list-footer { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0.5rem 0.75rem; font-size: 0.8rem; color: #9aa6bd; background: rgba(21, 31, 46, 0.6); border-top: 1px solid rgba(159, 173, 189, 0.08); }
+        .ep-list-footer .now { color: #e8ecf4; font-weight: 700; }
+        .ep-list-footer .now i { color: var(--c-accent, #b5a8ff); margin-right: 4px; }
         .episode-grid.list .ep-grid-item.list-row.watched:not(.active) .ep-num { color: #22c55e; }
         .episode-grid.image .ep-grid-item.image-card.watched:not(.active)::after { content: '\2713'; position: absolute; top: 6px; right: 6px; background: rgba(34, 197, 94, 0.85); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; }
         .episode-grid.image .ep-grid-item.image-card.watched:not(.active) { opacity: 0.85; }
@@ -208,7 +213,7 @@
         .episode-grid.list { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
         .ep-grid-item.list-row { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0.5rem; background: #151f2e; border: 1px solid rgba(159, 173, 189, 0.1); border-radius: 0.5rem; cursor: pointer; color: #9aa6bd; font-size: 0.78rem; transform: scale(0.98); transition: background-color .25s, box-shadow .25s, transform .25s, filter .25s; }
         .ep-grid-item.list-row:hover, .ep-grid-item.list-row:focus { filter: brightness(1.05); outline: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 5px rgba(0, 0, 0, 0.6); transform: scale(1); }
-        .ep-grid-item.list-row.active { background: #595991; color: #fff; }
+        .ep-grid-item.list-row.active { background: var(--c-accent, #595991); color: var(--c-accent-text, #fff); }
         .ep-grid-item.list-row .ep-num { font-weight: 800; min-width: 44px; flex-shrink: 0; }
         .ep-grid-item.list-row .ep-row-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -1212,6 +1217,10 @@
                             <i class="fas fa-spinner fa-spin"></i> Loading episodes...
                         </div>
                     </div>
+                    <div class="ep-list-footer" id="epListFooter" style="display:none">
+                        <span class="now"><i class="fas fa-play"></i><span id="epFooterNow">—</span></span>
+                        <span id="epFooterTotal">—</span>
+                    </div>
                 </div>
 
                 <div class="panel synopsis-panel">
@@ -1427,6 +1436,9 @@ const epRangeSelect = document.getElementById('epRangeSelect');
 const epFilterInput = document.getElementById('epFilterInput');
 const epSpoilerBtn = document.getElementById('epSpoilerBtn');
 const epLayoutBtn = document.getElementById('epLayoutBtn');
+const epListFooter = document.getElementById('epListFooter');
+const epFooterNow = document.getElementById('epFooterNow');
+const epFooterTotal = document.getElementById('epFooterTotal');
 const epCountEl = document.getElementById('epCount');
 const nextEpBanner = document.getElementById('nextEpBanner');
 const nextEpBannerText = document.getElementById('nextEpBannerText');
@@ -1837,6 +1849,14 @@ function renderEpisodes(episodes) {
         epCountEl.textContent = (ac && tc && ac < tc)
             ? `${ac} / ${tc} eps`
             : episodes.length + ' eps';
+    }
+    if (epListFooter) {
+        epFooterNow.textContent = 'E' + (state.currentEp || '—');
+        const ac = state.airedCount, tc = state.totalEpisodes;
+        epFooterTotal.textContent = (ac && tc && ac < tc)
+            ? `${ac} / ${tc} episodes`
+            : `${episodes.length} episodes`;
+        epListFooter.style.display = 'flex';
     }
     if (episodes.length === 0) {
         episodeGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#5a6280;">No episodes found</div>';
